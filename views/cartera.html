@@ -1,0 +1,132 @@
+<!-- Módulo Cartera: Control de clientes con pagos pendientes -->
+<div class="view-container">
+    <div class="row justify-content-center">
+        <div class="col-md-12">
+            <!-- Tarjetas de Resumen -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-gradient-primary text-white border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-1 fw-semibold">Total Cartera</h6>
+                                    <p class="card-text mb-0 opacity-75">Saldo total por cobrar</p>
+                                </div>
+                                <div class="text-end">
+                                    <i class="fas fa-wallet fs-1 opacity-75"></i>
+                                </div>
+                            </div>
+                            <h3 class="mt-2 mb-0 fw-bold" id="totalCartera">$0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-gradient-success text-white border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-1 fw-semibold">Clientes Activos</h6>
+                                    <p class="card-text mb-0 opacity-75">Con saldos pendientes</p>
+                                </div>
+                                <div class="text-end">
+                                    <i class="fas fa-users fs-1 opacity-75"></i>
+                                </div>
+                            </div>
+                            <h3 class="mt-2 mb-0 fw-bold" id="clientesActivos">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-gradient-warning text-white border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-1 fw-semibold">Promedio por Cliente</h6>
+                                    <p class="card-text mb-0 opacity-75">Saldo promedio pendiente</p>
+                                </div>
+                                <div class="text-end">
+                                    <i class="fas fa-chart-bar fs-1 opacity-75"></i>
+                                </div>
+                            </div>
+                            <h3 class="mt-2 mb-0 fw-bold" id="promedioCliente">$0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buscador y Filtros -->
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0">
+                                    <i class="fas fa-search text-muted"></i>
+                                </span>
+                                <input type="text" id="buscadorCartera" class="form-control border-start-0" placeholder="Buscar cliente, producto o referencia...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroSaldo">
+                                <option value="todos">Todos los saldos</option>
+                                <option value="mayor-1000">Mayor a $1,000</option>
+                                <option value="mayor-500">Mayor a $500</option>
+                                <option value="menor-500">Menor a $500</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-primary w-100" id="btnExportarCartera">
+                                <i class="fas fa-download me-2"></i>Exportar Cartera
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla Principal -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-gradient-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-semibold">
+                            <i class="fas fa-wallet me-2"></i>
+                            Cartera - Control de Pagos Pendientes
+                        </h5>
+                        <div class="text-end">
+                            <small class="text-white opacity-75" id="totalRegistros">0 registros</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="fw-semibold"><i class="fas fa-user me-2"></i>Cliente</th>
+                                    <th class="fw-semibold"><i class="fas fa-box me-2"></i>Producto</th>
+                                    <th class="fw-semibold"><i class="fas fa-tag me-2"></i>Referencia</th>
+                                    <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha</th>
+                                    <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Total</th>
+                                    <th class="fw-semibold"><i class="fas fa-hand-holding-usd me-2"></i>Anticipo</th>
+                                    <th class="fw-semibold"><i class="fas fa-exclamation-triangle me-2"></i>Saldo Pendiente</th>
+                                    <th class="fw-semibold"><i class="fas fa-money-bill-wave me-2"></i>Abonar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="carteraTabla">
+                                <!-- Aquí se agregarán dinámicamente los clientes con pagos pendientes -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mensaje de vacío -->
+            <div class="card shadow-sm border-0 mt-4" id="mensajeVacio" style="display: none;">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-wallet fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No hay clientes con saldos pendientes</h5>
+                    <p class="text-muted">Cuando se registren ventas con abonos parciales, aparecerán aquí para su seguimiento.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
