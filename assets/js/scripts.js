@@ -19,7 +19,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const st = { ventas: [], instalacion: [], gastos: [], mercancia: [] };
   let instEditClickBound = false;
   let ventasEditClickBound = false;
+  let ventasItemsClickBound = false;
   let mercanciaEditClickBound = false;
+  let ventasVistaCache = [];
   const charts = {};
 
   const q = (s) => document.querySelector(s);
@@ -104,6 +106,77 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!Number.isNaN(d) && t2.match(/\d{4}-\d{2}-\d{2}/)) return d;
     return t2.toLowerCase();
   };
+  const tablePager = new WeakMap();
+  const getPagerRows = (table) => {
+    const tbody = table?.querySelector("tbody");
+    if (!tbody) return [];
+    return [...tbody.querySelectorAll("tr")];
+  };
+  const renderTablePagination = (table) => {
+    const state = tablePager.get(table);
+    if (!state) return;
+    const allRows = getPagerRows(table);
+    const filteredRows = allRows.filter((r) => r.dataset.filterHidden !== "1");
+    const totalRows = filteredRows.length;
+    const totalPages = Math.max(Math.ceil(totalRows / state.pageSize), 1);
+    if (state.page > totalPages) state.page = totalPages;
+    const start = (state.page - 1) * state.pageSize;
+    const end = start + state.pageSize;
+
+    allRows.forEach((r) => { r.style.display = "none"; });
+    filteredRows.slice(start, end).forEach((r) => { r.style.display = ""; });
+
+    if (!state.infoEl || !state.listEl) return;
+    const from = totalRows ? start + 1 : 0;
+    const to = Math.min(end, totalRows);
+    state.infoEl.textContent = `Mostrando ${fmtInt(from)}-${fmtInt(to)} de ${fmtInt(totalRows)}`;
+    state.listEl.innerHTML = "";
+
+    const addBtn = (label, page, disabled = false, active = false) => {
+      const li = document.createElement("li");
+      li.className = `page-item${disabled ? " disabled" : ""}${active ? " active" : ""}`;
+      li.innerHTML = `<button class="page-link" type="button">${label}</button>`;
+      if (!disabled) {
+        li.querySelector("button").addEventListener("click", () => {
+          state.page = page;
+          renderTablePagination(table);
+        });
+      }
+      state.listEl.appendChild(li);
+    };
+    addBtn("«", Math.max(state.page - 1, 1), state.page === 1);
+    const windowStart = Math.max(state.page - 2, 1);
+    const windowEnd = Math.min(windowStart + 4, totalPages);
+    for (let p = windowStart; p <= windowEnd; p += 1) addBtn(String(p), p, false, p === state.page);
+    addBtn("»", Math.min(state.page + 1, totalPages), state.page === totalPages);
+  };
+  const ensureTablePagination = (table, moduleKey, pageSize = 10) => {
+    if (!table) return;
+    const wrapHost = table.closest(".table-responsive") || table.parentElement;
+    if (!wrapHost) return;
+    let state = tablePager.get(table);
+    if (!state) {
+      const footer = document.createElement("div");
+      footer.className = "d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 px-3 py-2 border-top bg-light";
+      footer.innerHTML = `<small class="text-muted table-page-info">Mostrando 0-0 de 0</small><nav><ul class="pagination pagination-sm mb-0 table-page-list"></ul></nav>`;
+      wrapHost.insertAdjacentElement("afterend", footer);
+      state = {
+        moduleKey,
+        page: 1,
+        pageSize,
+        infoEl: footer.querySelector(".table-page-info"),
+        listEl: footer.querySelector(".table-page-list")
+      };
+      tablePager.set(table, state);
+    }
+    state.pageSize = pageSize;
+    renderTablePagination(table);
+  };
+  const resetAndPaginate = (table) => {
+    const state = tablePager.get(table);
+    if (state) state.page = 1;
+    renderTablePagination(table);
+  };
   const enableTableSort = (table) => {
     if (!table || table.dataset.sortReady) return;
     const ths = table.querySelectorAll("thead th");
@@ -125,6 +198,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         tbody.innerHTML = "";
         rows.forEach((r) => tbody.appendChild(r));
+        renderTablePagination(table);
       });
     });
     table.dataset.sortReady = "1";
@@ -154,6 +228,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     host.appendChild(wrap);
     q(`#btnExcel_${moduleKey}`)?.addEventListener("click", () => exportTableExcel(table, moduleKey));
     q(`#btnPdf_${moduleKey}`)?.addEventListener("click", () => exportTablePdf(table, `Reporte ${moduleKey}`));
+    ensureTablePagination(table, moduleKey, 10);
   };
 
   async function load(k) {
@@ -179,7 +254,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!i || !table) return;
     i.onkeyup = () => {
       const f = i.value.toLowerCase();
-      table.querySelectorAll("tbody tr").forEach((r) => { r.style.display = r.innerText.toLowerCase().includes(f) ? "" : "none"; });
+      table.querySelectorAll("tbody tr").forEach((r) => {
+        r.dataset.filterHidden = r.innerText.toLowerCase().includes(f) ? "0" : "1";
+      });
+      resetAndPaginate(table);
     };
   }
 
@@ -257,9 +335,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         const metodoPago = q("#metodoPago").value;
         const vendedor = q("#vendedor").value;
         const cliente = q("#cliente").value;
+        const telefono = txt(q("#telefono")?.value);
         const ubicacion = q("#ub").value;
         const fechaProgramada = q("#fechaProgramada").value;
-        for (const item of carritoProductos) {
+        for (let idx = 0; idx < carritoProductos.length; idx += 1) {
+          const item = carritoProductos[idx];
           await ins("ventas", {
             fecha,
             numero_recibo: numeroRecibo,
@@ -268,10 +348,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             descripcion: item.descripcion,
             cantidad: item.cantidad,
             precio: item.precio,
-            abono,
+            abono: idx === 0 ? abono : 0,
             metodo_pago: metodoPago,
             vendedor,
             cliente,
+            telefono,
             ubicacion_cliente: ubicacion,
             fecha_programacion: fechaProgramada,
             total: item.cantidad * item.precio
@@ -307,6 +388,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             abono: Number(q("#editVentaAbono").value || 0),
             metodo_pago: q("#editVentaMetodoPago").value,
             vendedor: q("#editVentaVendedor").value,
+            telefono: txt(q("#editVentaTelefono")?.value),
             fecha_programacion: q("#editVentaFechaProgramada").value,
             total: cantidad * precio
           });
@@ -336,6 +418,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (q("#editVentaAbono")) q("#editVentaAbono").value = Number(val(item, "abono") || 0);
         if (q("#editVentaMetodoPago")) q("#editVentaMetodoPago").value = val(item, "metodo_pago", "metodoPago") || "";
         if (q("#editVentaVendedor")) q("#editVentaVendedor").value = val(item, "vendedor") || "";
+        if (q("#editVentaTelefono")) q("#editVentaTelefono").value = val(item, "telefono") || "";
         if (q("#editVentaFechaProgramada")) q("#editVentaFechaProgramada").value = val(item, "fecha_programacion", "fecha_programada", "fechaProgramada") || "";
         const currentModalEl = q("#editarVentaModal");
         const currentModal = currentModalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(currentModalEl) : null;
@@ -343,26 +426,98 @@ document.addEventListener("DOMContentLoaded", async () => {
       }, { passive: true });
       ventasEditClickBound = true;
     }
+    if (!ventasItemsClickBound) {
+      document.addEventListener("click", (e) => {
+        const btn = e.target.closest(".ver-items-venta-btn");
+        if (!btn) return;
+        const idx = Number(btn.dataset.idx);
+        const item = ventasVistaCache[idx];
+        if (!item) return;
+        const rows = (item.items || []).map((x) =>
+          `<tr><td>${x.producto || "-"}</td><td>${x.descripcion || "-"}</td><td>${fmtInt(x.cantidad)}</td><td>${money(x.precio)}</td><td>${money(x.subtotal)}</td></tr>`
+        ).join("");
+        const html = `<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>Producto</th><th>Descripcion</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="text-center text-muted">Sin productos</td></tr>'}</tbody></table></div>`;
+        if (window.Swal) {
+          window.Swal.fire({
+            title: `Detalle del pedido ${item.numeroPedido || "-"}`,
+            html,
+            width: 900,
+            confirmButtonText: "Cerrar"
+          });
+        } else {
+          alertx("No se pudo abrir detalle (SweetAlert no disponible)", "warning");
+        }
+      }, { passive: true });
+      ventasItemsClickBound = true;
+    }
     renderCarrito();
     renderVentas(); buscador("buscadorVentas", "datatablesSimple"); mountTableTools("ventas");
   }
   function renderVentas() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
-    body.innerHTML = st.ventas.map((v) => {
+    const grupos = new Map();
+    st.ventas.forEach((v, idx) => {
+      const numeroPedido = String(val(v, "numero_pedido", "numeroPedido") || "").trim();
+      const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
+      const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
+      const key = numeroPedido
+        ? `pedido:${numeroPedido}|cliente:${clienteKey}`
+        : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
       const cantidad = Number(val(v, "cantidad") || 0);
       const precio = Number(val(v, "precio") || 0);
-      const ab = Number(val(v, "abono") || 0);
-      const total = cantidad * precio;
-      const saldo = total - ab;
-      return `<tr class="${saldo === 0 ? "table-success" : ""}"><td>${val(v, "fecha") || "-"}</td><td>${val(v, "numero_recibo", "numeroRecibo") || "-"}</td><td>${val(v, "numero_pedido", "numeroPedido") || "-"}</td><td>${val(v, "producto") || "-"}</td><td>${val(v, "descripcion", "referencia") || "-"}</td><td>${fmtInt(cantidad)}</td><td>${money(precio)}</td><td>${money(ab)}</td><td>${val(v, "metodo_pago", "metodoPago") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "ubicacion_cliente", "ub") || "-"}</td><td>${val(v, "fecha_programacion", "fecha_programada", "fechaProgramada") || "-"}</td><td>${money(total)}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-venta-btn" data-id="${v.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
+      const subtotal = cantidad * precio;
+      const abono = Number(val(v, "abono") || 0);
+      const producto = String(val(v, "producto") || "").trim();
+      const descripcion = String(val(v, "descripcion", "referencia") || "").trim();
+
+      if (!grupos.has(key)) {
+        grupos.set(key, {
+          id: val(v, "id"),
+          fecha: val(v, "fecha") || "-",
+          numeroRecibo: numeroRecibo || "-",
+          numeroPedido: numeroPedido || "-",
+          productos: [],
+          descripciones: [],
+          cantidad: 0,
+          total: 0,
+          abono: abono,
+          metodoPago: val(v, "metodo_pago", "metodoPago") || "-",
+          vendedor: val(v, "vendedor") || "-",
+          cliente: val(v, "cliente") || "-",
+          telefono: val(v, "telefono") || "-",
+          ubicacion: val(v, "ubicacion_cliente", "ub") || "-",
+          fechaProgramacion: val(v, "fecha_programacion", "fecha_programada", "fechaProgramada") || "-",
+          items: []
+        });
+      }
+
+      const g = grupos.get(key);
+      g.cantidad += cantidad;
+      g.total += subtotal;
+      g.abono = Math.max(Number(g.abono || 0), abono);
+      if (producto && !g.productos.includes(producto)) g.productos.push(producto);
+      if (descripcion && !g.descripciones.includes(descripcion)) g.descripciones.push(descripcion);
+      g.items.push({ producto, descripcion, cantidad, precio, subtotal });
+    });
+
+    const ventasVista = Array.from(grupos.values());
+    ventasVistaCache = ventasVista;
+    body.innerHTML = ventasVista.map((v, idx) => {
+      const saldo = v.total - Number(v.abono || 0);
+      const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
+      const descTxt = v.descripciones.length > 1 ? `${v.descripciones[0]} (+${v.descripciones.length - 1})` : (v.descripciones[0] || "-");
+      const precioProm = v.cantidad > 0 ? (v.total / v.cantidad) : 0;
+      return `<tr class="${saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-1"></i>Ver</button><button type="button" class="btn btn-sm btn-outline-primary edit-venta-btn" data-id="${v.id}"><i class="fas fa-pen me-1"></i>Editar</button></div></td></tr>`;
     }).join("");
-    const total = st.ventas.reduce((s, v) => s + Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0), 0);
-    const contado = st.ventas.reduce((s, v) => { const t2 = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0); return s + (Number(val(v, "abono") || 0) >= t2 ? t2 : 0); }, 0);
-    const credito = st.ventas.reduce((s, v) => { const t2 = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0); return s + Math.max(t2 - Number(val(v, "abono") || 0), 0); }, 0);
-    if (q("#ventas")) q("#ventas").textContent = fmtInt(st.ventas.length);
+
+    const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
+    const contado = ventasVista.reduce((s, v) => s + (Number(v.abono || 0) >= Number(v.total || 0) ? Number(v.total || 0) : 0), 0);
+    const credito = ventasVista.reduce((s, v) => s + Math.max(Number(v.total || 0) - Number(v.abono || 0), 0), 0);
+    if (q("#ventas")) q("#ventas").textContent = fmtInt(ventasVista.length);
     if (q("#total")) q("#total").textContent = money(total);
     if (q("#totalContado")) q("#totalContado").textContent = money(contado);
     if (q("#totalCredito")) q("#totalCredito").textContent = money(credito);
+    ensureTablePagination(q("#datatablesSimple"), "ventas", 10);
   }
 
   async function modInst() {
@@ -441,6 +596,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return `<tr class="${checked ? "table-success" : ""}"><td><input type="checkbox" class="estado-check" data-id="${i.id}" ${checked ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtInt(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
     }).join("");
     if (q("#pedidoEntregar")) q("#pedidoEntregar").textContent = fmtInt(st.instalacion.length);
+    ensureTablePagination(q("#datatablesSimple"), "instalacion", 10);
     document.querySelectorAll(".estado-check").forEach((c) => c.onchange = async function () {
       try { await upd("instalacion", this.dataset.id, { estado: this.checked ? "Completado" : "Pendiente" }); renderInst(); }
       catch (err) { this.checked = !this.checked; alertx(err.message || "No se pudo cambiar estado", "error"); }
@@ -469,6 +625,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (q("#totalAnadir")) q("#totalAnadir").textContent = money(ti);
     if (q("#balanceTotal")) q("#balanceTotal").textContent = money(tc + ti - tg);
     if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(st.gastos.length);
+    ensureTablePagination(q("#datatablesSimple"), "gastos", 10);
   }
 
   async function modMercancia() {
@@ -546,6 +703,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return `<tr><td>${val(m, "fecha_recepcion", "fechaRecepcion") || "-"}</td><td>${val(m, "transportadora") || "-"}</td><td>${val(m, "remitente") || "-"}</td><td>${val(m, "cliente_destino", "clienteDestino") || "-"}</td><td>${desc.producto}</td><td>${fmtInt(val(m, "cantidad_cajas", "cantidad"))}</td><td>${money(val(m, "precio"))}</td><td>${desc.descripcion}</td><td>${val(m, "observaciones") || "-"}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-mercancia-btn" data-id="${m.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
     }).join("");
     if (q("#mercancia")) q("#mercancia").textContent = fmtInt(st.mercancia.length);
+    ensureTablePagination(q("#datatablesSimple"), "mercancia", 10);
   }
 
   async function modCartera() {
@@ -554,18 +712,51 @@ document.addEventListener("DOMContentLoaded", async () => {
     const buscador = q("#buscadorCartera"), filtroSaldo = q("#filtroSaldo"), filtroModo = q("#filtroModoCartera"), btnExportar = q("#btnExportarCartera");
     if (!tb) return;
 
-    const base = st.ventas.map((v) => {
+    const grouped = new Map();
+    st.ventas.forEach((v, idx) => {
+      const numeroPedido = String(val(v, "numero_pedido", "numeroPedido") || "").trim();
+      const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
+      const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
+      const key = numeroPedido
+        ? `pedido:${numeroPedido}|cliente:${clienteKey}`
+        : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
       const total = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
-      const ab = Number(val(v, "abono") || 0);
-      return { ...v, total, ab, saldo: total - ab };
+      const abono = Number(val(v, "abono") || 0);
+      const producto = String(val(v, "producto") || "").trim();
+      const descripcion = String(val(v, "descripcion", "referencia") || "").trim();
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: val(v, "id"),
+          itemIds: [],
+          cliente: val(v, "cliente") || "-",
+          telefono: val(v, "telefono") || "-",
+          productos: [],
+          descripciones: [],
+          fecha: val(v, "fecha") || "-",
+          numeroPedido: numeroPedido || "-",
+          numeroCartera: val(v, "numero_cartera", "numeroCartera") || "-",
+          total: 0,
+          ab: 0
+        });
+      }
+      const g = grouped.get(key);
+      g.itemIds.push(val(v, "id"));
+      g.total += total;
+      g.ab = Math.max(Number(g.ab || 0), abono);
+      if (producto && !g.productos.includes(producto)) g.productos.push(producto);
+      if (descripcion && !g.descripciones.includes(descripcion)) g.descripciones.push(descripcion);
+      if (!g.numeroCartera || g.numeroCartera === "-") g.numeroCartera = val(v, "numero_cartera", "numeroCartera") || "-";
     });
+    const base = Array.from(grouped.values()).map((g) => ({ ...g, saldo: g.total - g.ab }));
 
     const applyFilters = () => {
       const term = String(buscador?.value || "").toLowerCase().trim();
       const saldoRule = String(filtroSaldo?.value || "todos");
       const modo = String(filtroModo?.value || "pendientes");
       return base.filter((c) => {
-        const hayTexto = !term || [val(c, "cliente"), val(c, "producto"), val(c, "descripcion", "referencia"), val(c, "numero_pedido", "numeroPedido"), val(c, "numero_recibo", "numeroRecibo"), val(c, "numero_cartera", "numeroCartera")]
+        const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
+        const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
+        const hayTexto = !term || [c.cliente, c.telefono, productoTxt, descripcionTxt, c.numeroPedido, c.numeroCartera]
           .join(" ").toLowerCase().includes(term);
         const cumpleModo = modo === "abonos" ? c.ab > 0 : c.saldo > 0;
         let haySaldo = true;
@@ -587,15 +778,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (q("#clientesActivos")) q("#clientesActivos").textContent = "0";
         if (q("#promedioCliente")) q("#promedioCliente").textContent = money(0);
         if (q("#totalRegistros")) q("#totalRegistros").textContent = "0 registros";
+        ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
         return;
       }
 
       if (msg) msg.style.display = "none";
       tb.innerHTML = cart.map((c, i) => {
+        const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
+        const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
         const acciones = soloVisual
           ? '<span class="text-muted small">Solo visual</span>'
           : `<div class="d-flex flex-column flex-md-row gap-2"><input type="number" class="abono-input form-control form-control-sm" min="0.01" step="0.01" data-i="${i}" placeholder="Valor"><input type="text" class="abono-cartera-input form-control form-control-sm" data-i="${i}" placeholder="No. cartera"><button class="btn btn-success btn-sm abonar-btn" data-id="${c.id}" data-i="${i}">Abonar</button></div>`;
-        return `<tr><td>${val(c, "cliente") || "-"}</td><td>${val(c, "producto") || "-"}</td><td>${val(c, "descripcion", "referencia") || "-"}</td><td>${val(c, "fecha") || "-"}</td><td>${val(c, "numero_pedido", "numeroPedido") || "-"}</td><td>${val(c, "numero_cartera", "numeroCartera") || "-"}</td><td>${money(c.total)}</td><td>${money(c.ab)}</td><td>${money(c.saldo)}</td><td>${acciones}</td></tr>`;
+        return `<tr><td>${c.cliente}</td><td>${c.telefono}</td><td>${productoTxt}</td><td>${descripcionTxt}</td><td>${c.fecha}</td><td>${c.numeroPedido}</td><td>${c.numeroCartera || "-"}</td><td>${money(c.total)}</td><td>${money(c.ab)}</td><td>${money(c.saldo)}</td><td>${acciones}</td></tr>`;
       }).join("");
       const total = cart.reduce((s, c) => s + c.saldo, 0);
       const clientes = new Set(cart.map((c) => val(c, "cliente") || "")).size;
@@ -603,11 +797,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (q("#clientesActivos")) q("#clientesActivos").textContent = fmtInt(clientes);
       if (q("#promedioCliente")) q("#promedioCliente").textContent = money(clientes ? total / clientes : 0);
       if (q("#totalRegistros")) q("#totalRegistros").textContent = `${fmtInt(cart.length)} registros`;
+      ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
       if (soloVisual) return;
 
       document.querySelectorAll(".abonar-btn").forEach((b) => b.onclick = async function () {
         const i = Number(this.dataset.i);
-        const id = this.dataset.id;
         const inp = document.querySelector(`input.abono-input[data-i="${i}"]`);
         const carteraInp = document.querySelector(`input.abono-cartera-input[data-i="${i}"]`);
         const abono = Number(inp?.value || 0);
@@ -616,7 +810,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (abono > cart[i].saldo) return alertx("El abono supera el saldo", "warning");
         if (!numeroCartera) return alertx("Ingresa numero de cartera para el abono", "warning");
         try {
-          await upd("ventas", id, { abono: cart[i].ab + abono, total: cart[i].total, numero_cartera: numeroCartera });
+          const nuevoAbono = cart[i].ab + abono;
+          const ids = (cart[i].itemIds || []).filter(Boolean);
+          if (!ids.length) throw new Error("No se encontraron items del pedido");
+          const { error } = await sb.from(t.ventas).update({ abono: nuevoAbono, numero_cartera: numeroCartera }).in("id", ids);
+          if (error) throw error;
+          logHistory("ventas", "abono", { ids, abono, abono_total_pedido: nuevoAbono, numero_cartera: numeroCartera });
+          await load("ventas");
           alertx("Abono registrado", "success");
           await modCartera();
         } catch (err) {
@@ -641,15 +841,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       btnExportar.addEventListener("click", () => {
         const cart = applyFilters();
         if (!cart.length) return alertx("No hay datos para exportar", "warning");
-        const rows = [["Cliente", "Producto", "Descripcion", "Fecha", "Numero Pedido Venta", "Numero Cartera", "Total", "Abono", "Saldo"]];
+        const rows = [["Cliente", "Telefono", "Producto", "Descripcion", "Fecha", "Numero Pedido Venta", "Numero Cartera", "Total", "Abono", "Saldo"]];
         cart.forEach((c) => {
+          const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
+          const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
           rows.push([
-          val(c, "cliente") || "",
-          val(c, "producto") || "",
-          val(c, "descripcion", "referencia") || "",
-          val(c, "fecha") || "",
-          val(c, "numero_pedido", "numeroPedido") || "",
-          val(c, "numero_cartera", "numeroCartera") || "",
+          c.cliente || "",
+          c.telefono || "",
+          productoTxt,
+          descripcionTxt,
+          c.fecha || "",
+          c.numeroPedido || "",
+          c.numeroCartera || "",
           String(c.total),
           String(c.ab),
           String(c.saldo)
@@ -676,14 +879,38 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function modDashboard() {
     await Promise.all([load("ventas"), load("mercancia"), load("gastos")]);
     const ventas = st.ventas || [];
+    const ventasAgrupadasMap = new Map();
+    ventas.forEach((v, idx) => {
+      const numeroPedido = String(val(v, "numero_pedido", "numeroPedido") || "").trim();
+      const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
+      const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
+      const key = numeroPedido
+        ? `pedido:${numeroPedido}|cliente:${clienteKey}`
+        : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
+      const subtotal = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
+      const abono = Number(val(v, "abono") || 0);
+      const producto = String(val(v, "producto") || "").trim();
+      if (!ventasAgrupadasMap.has(key)) {
+        ventasAgrupadasMap.set(key, {
+          cliente: val(v, "cliente") || "-",
+          fecha: val(v, "fecha") || "-",
+          numeroPedido: numeroPedido || "-",
+          productos: [],
+          total: 0,
+          abono: 0
+        });
+      }
+      const g = ventasAgrupadasMap.get(key);
+      g.total += subtotal;
+      g.abono = Math.max(Number(g.abono || 0), abono);
+      if (producto && !g.productos.includes(producto)) g.productos.push(producto);
+    });
+    const ventasAgrupadas = Array.from(ventasAgrupadasMap.values()).map((v) => ({ ...v, saldo: Math.max(Number(v.total || 0) - Number(v.abono || 0), 0) }));
     const ingresos = ventas.reduce((s, v) => s + Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0), 0);
-    const deuda = ventas.reduce((s, v) => {
-      const t2 = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
-      return s + Math.max(t2 - Number(val(v, "abono") || 0), 0);
-    }, 0);
-    const ticketProm = ventas.length ? ingresos / ventas.length : 0;
+    const deuda = ventasAgrupadas.reduce((s, v) => s + Number(v.saldo || 0), 0);
+    const ticketProm = ventasAgrupadas.length ? ingresos / ventasAgrupadas.length : 0;
     if (q("#dashIngresos")) q("#dashIngresos").textContent = money(ingresos);
-    if (q("#dashVentas")) q("#dashVentas").textContent = fmtInt(ventas.length);
+    if (q("#dashVentas")) q("#dashVentas").textContent = fmtInt(ventasAgrupadas.length);
     if (q("#dashCartera")) q("#dashCartera").textContent = money(deuda);
     if (q("#dashTicketPromedio")) q("#dashTicketPromedio").textContent = money(ticketProm);
 
@@ -712,11 +939,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         options: { responsive: true, plugins: { legend: { display: false } } }
       });
     }
-    const ventasPagadas = ventas.filter((v) => {
-      const total = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
-      return Number(val(v, "abono") || 0) >= total;
-    }).length;
-    const ventasPend = Math.max(ventas.length - ventasPagadas, 0);
+    const ventasPagadas = ventasAgrupadas.filter((v) => Number(v.abono || 0) >= Number(v.total || 0)).length;
+    const ventasPend = Math.max(ventasAgrupadas.length - ventasPagadas, 0);
     if (window.Chart && q("#chartCarteraEstado")) {
       charts.carteraEstado = new window.Chart(q("#chartCarteraEstado"), {
         type: "doughnut",
@@ -734,11 +958,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false } } }
       });
     }
-    const carteraRows = ventas.map((v) => {
-      const total = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
-      const saldo = total - Number(val(v, "abono") || 0);
-      return { cliente: val(v, "cliente") || "-", producto: val(v, "producto") || "-", saldo, fecha: val(v, "fecha") || "-" };
-    }).filter((x) => x.saldo > 0).sort((a, b) => b.saldo - a.saldo).slice(0, 8);
+    const carteraRows = ventasAgrupadas
+      .filter((x) => x.saldo > 0)
+      .sort((a, b) => b.saldo - a.saldo)
+      .slice(0, 8)
+      .map((x) => {
+        const producto = x.productos.length > 1 ? `${x.productos[0]} (+${x.productos.length - 1})` : (x.productos[0] || "-");
+        return { cliente: x.cliente, producto, saldo: x.saldo, fecha: x.fecha };
+      });
     const tb = q("#dashTopClientes");
     if (tb) tb.innerHTML = carteraRows.length
       ? carteraRows.map((r) => `<tr><td>${r.cliente}</td><td>${r.producto}</td><td>${money(r.saldo)}</td><td>${r.fecha}</td></tr>`).join("")
