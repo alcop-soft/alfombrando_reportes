@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let instEditClickBound = false;
   let ventasEditClickBound = false;
   let ventasItemsClickBound = false;
+  let ventasCreateInstClickBound = false;
   let mercanciaEditClickBound = false;
   let ventasVistaCache = [];
   const charts = {};
@@ -464,6 +465,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       }, { passive: true });
       ventasItemsClickBound = true;
     }
+    if (!ventasCreateInstClickBound) {
+      document.addEventListener("click", (e) => {
+        const btn = e.target.closest(".create-inst-from-sale-btn");
+        if (!btn) return;
+        const idx = Number(btn.dataset.idx);
+        const item = ventasVistaCache[idx];
+        if (!item) return;
+        const payload = {
+          cliente: item.cliente || "",
+          telefono: item.telefono || "",
+          ubicacion: item.ubicacion || "",
+          producto: item.productos?.join(", ") || "",
+          descripcion: item.descripciones?.join(", ") || "",
+          numero_pedido: item.numeroPedido || ""
+        };
+        localStorage.setItem("ventaParaInstalacion", JSON.stringify(payload));
+        change("instalacion-form");
+      }, { passive: true });
+      ventasCreateInstClickBound = true;
+    }
     renderCarrito();
     renderVentas(); buscador("buscadorVentas", "datatablesSimple"); mountTableTools("ventas");
   }
@@ -521,7 +542,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
       const descTxt = v.descripciones.length > 1 ? `${v.descripciones[0]} (+${v.descripciones.length - 1})` : (v.descripciones[0] || "-");
       const precioProm = v.cantidad > 0 ? (v.total / v.cantidad) : 0;
-      return `<tr class="${saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-1"></i>Ver</button><button type="button" class="btn btn-sm btn-outline-primary edit-venta-btn" data-id="${v.id}"><i class="fas fa-pen me-1"></i>Editar</button></div></td></tr>`;
+      return `<tr class="${saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button><button type="button" class="btn btn-outline-primary edit-venta-btn" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button></div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
     }).join("");
 
     const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
@@ -549,6 +570,45 @@ document.addEventListener("DOMContentLoaded", async () => {
     const modalEl = q("#editarInstalacionModal");
     const editForm = q("#editInstalacionForm");
     const modal = modalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+    const prefKey = "ventaParaInstalacion";
+    const notice = q("#instFromVentaNotice");
+    const setReq = (selector, on) => { const el = q(selector); if (el) el.required = !!on; };
+    const applyRequiredMode = (fromVenta) => {
+      setReq("#cliente", !fromVenta);
+      setReq("#telefono", !fromVenta);
+      setReq("#producto", !fromVenta);
+      setReq("#ubicacion", !fromVenta);
+      setReq("#fechaEntrega", fromVenta);
+      setReq("#instalador", fromVenta);
+      setReq("#observaciones", fromVenta);
+    };
+    const aplicarPrefillDesdeVenta = () => {
+      const raw = localStorage.getItem(prefKey);
+      if (!raw) {
+        applyRequiredMode(false);
+        if (notice) notice.classList.add("d-none");
+        return;
+      }
+      try {
+        applyRequiredMode(true);
+        const data = JSON.parse(raw);
+        if (q("#cliente")) q("#cliente").value = data.cliente || "";
+        if (q("#telefono")) q("#telefono").value = data.telefono || "";
+        if (q("#producto")) q("#producto").value = data.producto || "";
+        if (q("#ubicacion")) q("#ubicacion").value = data.ubicacion || "";
+        const obs = q("#observaciones");
+        const descLine = data.descripcion ? `Referencia: ${data.descripcion}` : "";
+        const pedidoLine = data.numero_pedido ? `Pedido: ${data.numero_pedido}` : "";
+        const extra = [descLine, pedidoLine].filter(Boolean).join(" | ");
+        if (obs && extra) obs.value = extra;
+        if (notice) notice.classList.remove("d-none");
+      } catch (_) {
+        localStorage.removeItem(prefKey);
+        applyRequiredMode(false);
+        if (notice) notice.classList.add("d-none");
+      }
+    };
+    aplicarPrefillDesdeVenta();
     form.onsubmit = async (e) => {
       e.preventDefault();
       try {
@@ -557,7 +617,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           cantidad: Number(q("#cantidad").value || 0), ubicacion: q("#ubicacion").value, fecha_entrega: q("#fechaEntrega").value,
           estado: estadoMap[q("#estado").value] || "Pendiente", observaciones: q("#observaciones").value
         });
-        form.reset(); renderInst(); alertx("Instalacion registrada", "success");
+        localStorage.removeItem(prefKey);
+        form.reset();
+        applyRequiredMode(false);
+        if (notice) notice.classList.add("d-none");
+        renderInst();
+        if (window.Swal) {
+          window.Swal.fire({ icon: "success", title: "Instalación registrada correctamente", timer: 1700, showConfirmButton: false });
+        } else {
+          alertx("Instalación registrada correctamente", "success");
+        }
       } catch (err) { alertx(err.message || "No se pudo guardar instalacion", "error"); }
     };
     if (editForm && !editForm.dataset.bound) {
@@ -913,6 +982,67 @@ document.addEventListener("DOMContentLoaded", async () => {
         URL.revokeObjectURL(url);
       });
       btnExportar.dataset.bound = "1";
+    }
+
+    const btnResumen = q("#btnResumenCartera");
+    if (btnResumen && !btnResumen.dataset.bound) {
+      btnResumen.addEventListener("click", () => {
+        const cart = applyFilters();
+        if (!cart.length) return alertx("No hay datos para resumir", "warning");
+        const total = cart.reduce((s, c) => s + c.saldo, 0);
+        const clientes = new Set(cart.map((c) => val(c, "cliente") || "")).size;
+        const promedio = clientes ? total / clientes : 0;
+        const html = `
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-3">
+              <thead class="table-light">
+                <tr><th>Concepto</th><th>Valor</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Total por Cobrar</td><td>${money(total)}</td></tr>
+                <tr><td>Clientes con Deuda</td><td>${fmtInt(clientes)}</td></tr>
+                <tr><td>Deuda Promedio por Cliente</td><td>${money(promedio)}</td></tr>
+              </tbody>
+            </table>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <div class="card bg-light">
+                  <div class="card-body">
+                    <h6 class="card-title">Distribucion por Saldo</h6>
+                    <ul class="list-unstyled mb-0">
+                      <li>Mayor a $1,000: ${fmtInt(cart.filter(c => c.saldo > 1000).length)}</li>
+                      <li>Mayor a $500: ${fmtInt(cart.filter(c => c.saldo > 500).length)}</li>
+                      <li>Menor a $500: ${fmtInt(cart.filter(c => c.saldo <= 500).length)}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card bg-light">
+                  <div class="card-body">
+                    <h6 class="card-title">Distribucion por Abono</h6>
+                    <ul class="list-unstyled mb-0">
+                      <li>Con Abono: ${fmtInt(cart.filter(c => c.ab > 0).length)}</li>
+                      <li>Sin Abono: ${fmtInt(cart.filter(c => c.ab === 0).length)}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        if (window.Swal) {
+          window.Swal.fire({
+            title: "Resumen de Cartera",
+            html,
+            width: 800,
+            confirmButtonText: "Cerrar"
+          });
+        } else {
+          alertx("No se pudo abrir resumen (SweetAlert no disponible)", "warning");
+        }
+      });
+      btnResumen.dataset.bound = "1";
     }
 
     renderFiltered();
