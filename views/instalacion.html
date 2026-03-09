@@ -97,7 +97,7 @@
 
     <!-- Buscador General -->
     <div class="card-body pt-3 pb-0 px-0">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive">
             <div class="input-group" style="max-width: 400px;">
                 <span class="input-group-text bg-white border-end-0">
                     <i class="fas fa-search text-muted"></i>
@@ -176,7 +176,64 @@
     </div>
 </div>
 
-
+<div class="modal fade" id="editarInstalacionModal" tabindex="-1" aria-labelledby="editarInstalacionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editarInstalacionLabel">
+                    <i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Instalación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="editInstalacionForm">
+                <div class="modal-body text-start">
+                    <input type="hidden" id="editInstId">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="editInstalador" class="form-label fw-semibold">Instalador</label>
+                            <input type="text" class="form-control" id="editInstalador" placeholder="Nombre del instalador">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editTelefono" class="form-label fw-semibold">Teléfono</label>
+                            <input type="text" class="form-control" id="editTelefono" placeholder="Teléfono de contacto">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editCantidad" class="form-label fw-semibold">Cantidad</label>
+                            <input type="number" class="form-control" id="editCantidad" min="1">
+                        </div>
+                        <div class="col-md-8">
+                            <label for="editUbicacion" class="form-label fw-semibold">Ubicación</label>
+                            <input type="text" class="form-control" id="editUbicacion" placeholder="Dirección de instalación">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editFechaEntrega" class="form-label fw-semibold">Fecha de Entrega</label>
+                            <input type="date" class="form-control" id="editFechaEntrega">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editEstado" class="form-label fw-semibold">Estado</label>
+                            <select class="form-select" id="editEstado">
+                                <option value="1">Pendiente</option>
+                                <option value="2">Listo para Instalación</option>
+                                <option value="3">En Instalación</option>
+                                <option value="4">Completado</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="editObservaciones" class="form-label fw-semibold">Observaciones</label>
+                            <textarea class="form-control" id="editObservaciones" rows="3" placeholder="Notas importantes"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <!-- 
 

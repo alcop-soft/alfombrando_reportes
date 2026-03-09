@@ -95,7 +95,7 @@
 
     <!-- Buscador General -->
     <div class="card-body pt-3 pb-0 px-0">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive">
             <div class="input-group" style="max-width: 400px;">
                 <span class="input-group-text bg-white border-end-0">
                     <i class="fas fa-search text-muted"></i>
@@ -142,6 +142,7 @@
                             <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Valor Transporte</th>
                             <th class="fw-semibold"><i class="fas fa-tag me-2"></i>Descripción</th>
                             <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Observaciones</th>
+                            <th class="fw-semibold"><i class="fas fa-tools me-2"></i>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -169,6 +170,68 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editarMercanciaModal" tabindex="-1" aria-labelledby="editarMercanciaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editarMercanciaLabel">
+                    <i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Mercancía
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="editMercanciaForm">
+                <div class="modal-body text-start">
+                    <input type="hidden" id="editMercanciaId">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="editFechaRecepcion" class="form-label fw-semibold">Fecha Recepción</label>
+                            <input type="date" class="form-control" id="editFechaRecepcion">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editTransportadora" class="form-label fw-semibold">Transportadora</label>
+                            <input type="text" class="form-control" id="editTransportadora">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editRemitente" class="form-label fw-semibold">Remitente</label>
+                            <input type="text" class="form-control" id="editRemitente">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editClienteDestino" class="form-label fw-semibold">Cliente Destino</label>
+                            <input type="text" class="form-control" id="editClienteDestino">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editProductoMercancia" class="form-label fw-semibold">Producto</label>
+                            <input type="text" class="form-control" id="editProductoMercancia">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editCantidadCajas" class="form-label fw-semibold">Cantidad Cajas</label>
+                            <input type="number" min="1" class="form-control" id="editCantidadCajas">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editValorTransporte" class="form-label fw-semibold">Valor Transporte</label>
+                            <input type="number" min="0" step="0.01" class="form-control" id="editValorTransporte">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editDescripcionMercancia" class="form-label fw-semibold">Descripción</label>
+                            <input type="text" class="form-control" id="editDescripcionMercancia">
+                        </div>
+                        <div class="col-12">
+                            <label for="editObservacionesMercancia" class="form-label fw-semibold">Observaciones</label>
+                            <textarea class="form-control" id="editObservacionesMercancia" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
