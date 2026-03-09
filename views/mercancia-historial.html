@@ -1,0 +1,252 @@
+<!-- Vista: Registro de Recepción de Mercancía -->
+<div class="view-container">
+    <!-- Formulario -->
+    <div class="card shadow-sm border-0 d-none">
+        <div class="card-header bg-gradient-primary text-white">
+            <h6 class="mb-0 fw-semibold">
+                <i class="fas fa-plus-circle me-2"></i>
+                Formulario de Recepción de Mercancía
+            </h6>
+        </div>
+        <div class="card-body">
+            <form id="dataForm" class="row gy-3 gx-4">
+                <div class="col-md-6">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="fechaRecepcion" class="form-label fw-semibold">
+                                <i class="fas fa-calendar-alt me-2 text-primary"></i>Fecha de Recepción
+                            </label>
+                            <input type="date" class="form-control form-control-lg" required id="fechaRecepcion">
+                        </div>
+                        <div class="col-12">
+                            <label for="transportadora" class="form-label fw-semibold">
+                                <i class="fas fa-truck me-2 text-primary"></i>Transportadora
+                            </label>
+                            <input type="text" class="form-control form-control-lg" id="transportadora" placeholder="Ingrese el nombre de la transportadora">
+                        </div>
+                        <div class="col-12">
+                            <label for="remitente" class="form-label fw-semibold">
+                                <i class="fas fa-user me-2 text-primary"></i>Remitente
+                            </label>
+                            <input type="text" class="form-control form-control-lg" id="remitente" placeholder="Ingrese el nombre del remitente">
+                        </div>
+                        <div class="col-12">
+                            <label for="clienteDestino" class="form-label fw-semibold">
+                                <i class="fas fa-user-check me-2 text-primary"></i>Cliente Destino
+                            </label>
+                            <input type="text" class="form-control form-control-lg" required id="clienteDestino" placeholder="Ingrese el nombre del cliente destino">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="producto" class="form-label fw-semibold">
+                                <i class="fas fa-box me-2 text-primary"></i>Nombre del Producto
+                            </label>
+                            <input type="text" class="form-control form-control-lg" required id="producto" placeholder="Ingrese el nombre del producto">
+                        </div>
+                        <div class="col-12">
+                            <label for="cantidad" class="form-label fw-semibold">
+                                <i class="fas fa-hashtag me-2 text-primary"></i>Cantidad de Cajas
+                            </label>
+                            <input type="number" class="form-control form-control-lg" id="cantidad" placeholder="Ingrese la cantidad de cajas" min="1">
+                        </div>
+                        <div class="col-12">
+                            <label for="precio" class="form-label fw-semibold">
+                                <i class="fas fa-dollar-sign me-2 text-primary"></i>Valor de Transporte
+                            </label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light">$</span>
+                                <input type="number" step="0.01" class="form-control form-control-lg" required id="precio" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="descripcion" class="form-label fw-semibold">
+                                <i class="fas fa-tag me-2 text-primary"></i>Descripción del Producto
+                            </label>
+                            <input type="text" class="form-control form-control-lg" id="descripcion" placeholder="Ingrese descripción o detalles del producto">
+                        </div>
+                        <div class="col-12">
+                            <label for="observaciones" class="form-label fw-semibold">
+                                <i class="fas fa-sticky-note me-2 text-primary"></i>Observaciones Especiales
+                            </label>
+                            <textarea class="form-control form-control-lg" id="observaciones" rows="3" placeholder="Ingrese observaciones sobre el estado de la mercancía, daños, o instrucciones especiales"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-outline-secondary btn-lg px-4 me-md-2">
+                            <i class="fas fa-eraser me-2"></i>Limpiar Formulario
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-lg px-4">
+                            <i class="fas fa-save me-2"></i>Registrar Recepción
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+            <div class="card bg-primary text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Productos Recibidos</h6><h3 class="mb-0" id="mercKpiRecibidos" data-counter-type="number">0</h3></div><i class="fas fa-box fs-2 opacity-50"></i></div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-success text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Valor Total Mercancia</h6><h3 class="mb-0" id="mercKpiValor" data-counter-type="money">$0</h3></div><i class="fas fa-dollar-sign fs-2 opacity-50"></i></div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-warning text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Proveedores</h6><h3 class="mb-0" id="mercKpiProveedores" data-counter-type="number">0</h3></div><i class="fas fa-truck fs-2 opacity-50"></i></div></div>
+        </div>
+    </div>
+
+    <!-- Buscador General -->
+    <div class="card-body pt-3 pb-0 px-0">
+        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive gap-2 flex-wrap">
+            <button class="btn btn-primary btn-new-record" type="button" data-target-view="mercancia-form"><i class="fas fa-plus me-2"></i>Nueva mercancia</button>
+            <div class="input-group" style="max-width: 400px;">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text" id="buscadorMercancia" class="form-control border-start-0" placeholder="Buscar en mercancía..." aria-label="Buscar">
+            </div>
+            <div class="btn-group" role="group">
+                <button id="btnmercancia" class="btn btn-outline-primary active" type="button">
+                    <i class="fas fa-list me-2"></i>Toda la Mercancía
+                </button>
+                <button id="btnmercanciaDia" class="btn btn-outline-primary" type="button">
+                    <i class="fas fa-calendar-day me-2"></i>Mercancía de Hoy
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-gradient-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="fas fa-table me-2"></i>Registro de Mercancía
+                    </h6>
+                    <span class="badge bg-white text-primary fs-6 px-3 py-2" id="mercancia">0</span>
+                </div>
+                <div class="text-end">
+                    <small class="text-white opacity-75">Total de registros</small>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="tablamercancia" class="table-responsive">
+                <table id="datatablesSimple" class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha Recepción</th>
+                            <th class="fw-semibold"><i class="fas fa-truck me-2"></i>Transportadora</th>
+                            <th class="fw-semibold"><i class="fas fa-user me-2"></i>Remitente</th>
+                            <th class="fw-semibold"><i class="fas fa-user-check me-2"></i>Cliente Destino</th>
+                            <th class="fw-semibold"><i class="fas fa-box me-2"></i>Producto</th>
+                            <th class="fw-semibold"><i class="fas fa-hashtag me-2"></i>Cantidad Cajas</th>
+                            <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Valor Transporte</th>
+                            <th class="fw-semibold"><i class="fas fa-tag me-2"></i>Descripción</th>
+                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Observaciones</th>
+                            <th class="fw-semibold"><i class="fas fa-tools me-2"></i>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Los datos se agregarán aquí -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="mercanciaDia" class="table-responsive" style="display:none;">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha Recepción</th>
+                            <th class="fw-semibold"><i class="fas fa-truck me-2"></i>Transportadora</th>
+                            <th class="fw-semibold"><i class="fas fa-user me-2"></i>Remitente</th>
+                            <th class="fw-semibold"><i class="fas fa-user-check me-2"></i>Cliente Destino</th>
+                            <th class="fw-semibold"><i class="fas fa-box me-2"></i>Producto</th>
+                            <th class="fw-semibold"><i class="fas fa-hashtag me-2"></i>Cantidad Cajas</th>
+                            <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Valor Transporte</th>
+                            <th class="fw-semibold"><i class="fas fa-tag me-2"></i>Descripción</th>
+                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mercanciaDiaBody">
+                        <!-- Los datos se agregarán aquí -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editarMercanciaModal" tabindex="-1" aria-labelledby="editarMercanciaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editarMercanciaLabel">
+                    <i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Mercancía
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="editMercanciaForm">
+                <div class="modal-body text-start">
+                    <input type="hidden" id="editMercanciaId">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="editFechaRecepcion" class="form-label fw-semibold">Fecha Recepción</label>
+                            <input type="date" class="form-control" id="editFechaRecepcion">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editTransportadora" class="form-label fw-semibold">Transportadora</label>
+                            <input type="text" class="form-control" id="editTransportadora">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editRemitente" class="form-label fw-semibold">Remitente</label>
+                            <input type="text" class="form-control" id="editRemitente">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editClienteDestino" class="form-label fw-semibold">Cliente Destino</label>
+                            <input type="text" class="form-control" id="editClienteDestino">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editProductoMercancia" class="form-label fw-semibold">Producto</label>
+                            <input type="text" class="form-control" id="editProductoMercancia">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editCantidadCajas" class="form-label fw-semibold">Cantidad Cajas</label>
+                            <input type="number" min="1" class="form-control" id="editCantidadCajas">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editValorTransporte" class="form-label fw-semibold">Valor Transporte</label>
+                            <input type="number" min="0" step="0.01" class="form-control" id="editValorTransporte">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editDescripcionMercancia" class="form-label fw-semibold">Descripción</label>
+                            <input type="text" class="form-control" id="editDescripcionMercancia">
+                        </div>
+                        <div class="col-12">
+                            <label for="editObservacionesMercancia" class="form-label fw-semibold">Observaciones</label>
+                            <textarea class="form-control" id="editObservacionesMercancia" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+

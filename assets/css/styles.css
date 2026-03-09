@@ -17,6 +17,19 @@
 .table-responsive .pagination {
   flex-wrap: wrap;
 }
+.nav-submenu {
+  margin: 0.25rem 0 0.5rem 1.8rem;
+  display: grid;
+  gap: 0.15rem;
+}
+.nav-sub-link {
+  font-size: 0.9rem;
+  opacity: 0.95;
+}
+.form-view-shell {
+  max-width: 980px;
+  margin: 0 auto;
+}
 @charset "UTF-8";
 /*!
 * Start Bootstrap - SB Admin v7.0.7 (https://startbootstrap.com/template/sb-admin)

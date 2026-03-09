@@ -1,0 +1,250 @@
+<div class="view-container">
+    <div class="form-view-shell">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-gradient-primary text-white">
+            <h6 class="mb-0 fw-semibold"><i class="fas fa-plus-circle me-2"></i>Formulario de Registro de Ventas</h6>
+        </div>
+        <div class="card-body">
+            <form id="dataForm" class="row g-3 ventas-form-grid">
+                <div class="col-lg-4">
+                    <label for="fecha" class="form-label fw-semibold"><i class="fas fa-calendar-alt me-2 text-primary"></i>Fecha de Venta</label>
+                    <input type="date" class="form-control form-control-lg" required id="fecha">
+                </div>
+                <div class="col-lg-4">
+                    <label for="numeroRecibo" class="form-label fw-semibold"><i class="fas fa-receipt me-2 text-primary"></i>Numero de Recibo</label>
+                    <input type="text" class="form-control form-control-lg" id="numeroRecibo" placeholder="Ej: R-1025">
+                </div>
+                <div class="col-lg-4">
+                    <label for="numeroPedido" class="form-label fw-semibold"><i class="fas fa-hashtag me-2 text-primary"></i>Numero de Pedido</label>
+                    <input type="text" class="form-control form-control-lg" id="numeroPedido" placeholder="Ej: P-4481">
+                </div>
+
+                <div class="col-lg-4">
+                    <label for="producto" class="form-label fw-semibold"><i class="fas fa-box me-2 text-primary"></i>Producto</label>
+                    <input type="text" class="form-control form-control-lg" id="producto" placeholder="Nombre del producto">
+                </div>
+                <div class="col-lg-4">
+                    <label for="referencia" class="form-label fw-semibold"><i class="fas fa-tag me-2 text-primary"></i>Descripcion o Referencia</label>
+                    <input type="text" class="form-control form-control-lg" id="referencia" placeholder="Descripcion corta">
+                </div>
+                <div class="col-lg-2">
+                    <label for="cantidad" class="form-label fw-semibold"><i class="fas fa-hashtag me-2 text-primary"></i>Cantidad</label>
+                    <input type="number" class="form-control form-control-lg" id="cantidad" min="1" placeholder="0">
+                </div>
+                <div class="col-lg-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-primary btn-lg w-100" id="btnAgregarProducto"><i class="fas fa-plus me-2"></i>Agregar</button>
+                </div>
+
+                <div class="col-lg-3">
+                    <label for="precio" class="form-label fw-semibold"><i class="fas fa-dollar-sign me-2 text-primary"></i>Precio Unitario</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-light">$</span>
+                        <input type="number" step="0.01" class="form-control" id="precio" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="col-lg-3">
+                    <label for="abono" class="form-label fw-semibold"><i class="fas fa-hand-holding-usd me-2 text-primary"></i>Abono Inicial</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-light">$</span>
+                        <input type="number" step="0.01" class="form-control" id="abono" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="col-lg-3">
+                    <label for="metodoPago" class="form-label fw-semibold"><i class="fas fa-credit-card me-2 text-primary"></i>Metodo de Pago</label>
+                    <select class="form-select form-select-lg" id="metodoPago">
+                        <option value="">Seleccione</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Nequi">Nequi</option>
+                        <option value="Daviplata">Daviplata</option>
+                    </select>
+                </div>
+                <div class="col-lg-3">
+                    <label for="vendedor" class="form-label fw-semibold"><i class="fas fa-user-tie me-2 text-primary"></i>Vendedor</label>
+                    <select class="form-select form-select-lg" id="vendedor">
+                        <option value="">Seleccione</option>
+                        <option value="Mateo">Mateo</option>
+                        <option value="Marina">Marina</option>
+                        <option value="Alcop">Alcop</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-4">
+                    <label for="cliente" class="form-label fw-semibold"><i class="fas fa-user me-2 text-primary"></i>Cliente</label>
+                    <input type="text" class="form-control form-control-lg" required id="cliente" placeholder="Nombre del cliente">
+                </div>
+                <div class="col-lg-4">
+                    <label for="telefono" class="form-label fw-semibold"><i class="fas fa-phone me-2 text-primary"></i>Telefono</label>
+                    <input type="text" class="form-control form-control-lg" id="telefono" placeholder="Telefono del cliente">
+                </div>
+                <div class="col-lg-4">
+                    <label for="ub" class="form-label fw-semibold"><i class="fas fa-map-marker-alt me-2 text-primary"></i>Ubicacion</label>
+                    <input type="text" class="form-control form-control-lg" required id="ub" placeholder="Direccion o ubicacion">
+                </div>
+
+                <div class="col-lg-6">
+                    <label for="fechaProgramada" class="form-label fw-semibold"><i class="fas fa-calendar-check me-2 text-primary"></i>Fecha de Programacion</label>
+                    <input type="date" class="form-control form-control-lg" required id="fechaProgramada">
+                </div>
+                <div class="col-lg-6 d-flex align-items-end">
+                    <div class="alert alert-info border-0 bg-gradient-info text-white w-100 mb-0" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-info-circle me-3 fs-4"></i>
+                            <div>
+                                <h6 class="mb-1 fw-bold">Informacion Importante</h6>
+                                <small>Agrega varios productos y luego registra la venta completa.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-cart-shopping me-2 text-primary"></i>Carrito temporal de productos</span>
+                            <span class="badge bg-primary" id="carritoCantidad">0</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0 align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Descripcion</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio</th>
+                                            <th>Subtotal</th>
+                                            <th>Eliminar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="carritoVentasBody">
+                                        <tr><td colspan="6" class="text-center text-muted">No hay productos agregados</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="card-footer d-flex justify-content-end">
+                            <h5 class="mb-0">Total general: <span id="carritoTotalGeneral">$0</span></h5>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-outline-secondary btn-lg px-4 me-md-2"><i class="fas fa-eraser me-2"></i>Limpiar</button>
+                        <button type="button" class="btn btn-outline-dark btn-lg px-4 btn-cancel-form" data-target-view="ventas-historial"><i class="fas fa-arrow-left me-2"></i>Cancelar</button>
+                        <button type="submit" class="btn btn-primary btn-lg px-4"><i class="fas fa-save me-2"></i>Registrar Venta</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    </div>
+
+    <div class="card-body pt-3 pb-0 px-0 d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive">
+            <div class="input-group" style="max-width: 400px;">
+                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="buscadorVentas" class="form-control border-start-0" placeholder="Buscar en ventas..." aria-label="Buscar">
+            </div>
+            <div class="btn-group" role="group">
+                <button id="btnVentas" class="btn btn-outline-primary active" type="button"><i class="fas fa-list me-2"></i>Todas las Ventas</button>
+                <button id="btnVentasDia" class="btn btn-outline-primary" type="button"><i class="fas fa-calendar-day me-2"></i>Ventas de Hoy</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-0 d-none">
+        <div class="card-header bg-gradient-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <h6 class="mb-0 fw-semibold"><i class="fas fa-table me-2"></i>Registro de Ventas</h6>
+                    <span class="badge bg-white text-primary fs-6 px-3 py-2" id="ventas">0</span>
+                </div>
+                <div class="text-end"><small class="text-white opacity-75">Total de registros</small></div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="tablaVentas" class="table-responsive">
+                <table id="datatablesSimple" class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>No. Recibo</th>
+                            <th>No. Pedido</th>
+                            <th>Producto</th>
+                            <th>Descripcion</th>
+                            <th>Cantidad</th>
+                            <th>Precio</th>
+                            <th>Abono</th>
+                            <th>Metodo</th>
+                            <th>Vendedor</th>
+                            <th>Cliente</th>
+                            <th>Telefono</th>
+                            <th>Ubicacion</th>
+                            <th>Programacion</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="ventasDia" class="table-responsive" style="display:none;">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>Fecha</th><th>Producto</th><th>Total Ventas</th></tr>
+                    </thead>
+                    <tbody id="ventasDiaBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-0 d-none">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4"><div class="card bg-primary text-white border-0 h-100"><div class="card-body"><h6 class="mb-1">Total General</h6><h3 class="mb-0" id="total">$0</h3></div></div></div>
+                <div class="col-md-4"><div class="card bg-success text-white border-0 h-100"><div class="card-body"><h6 class="mb-1">Ventas al Contado</h6><h3 class="mb-0" id="totalContado">$0</h3></div></div></div>
+                <div class="col-md-4"><div class="card bg-warning text-white border-0 h-100"><div class="card-body"><h6 class="mb-1">Cuentas por Cobrar</h6><h3 class="mb-0" id="totalCredito">$0</h3></div></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editarVentaModal" tabindex="-1" aria-labelledby="editarVentaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editarVentaLabel"><i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="editVentaForm">
+                <div class="modal-body text-start">
+                    <input type="hidden" id="editVentaId">
+                    <div class="row g-3">
+                        <div class="col-md-4"><label for="editVentaFecha" class="form-label fw-semibold">Fecha</label><input type="date" class="form-control" id="editVentaFecha"></div>
+                        <div class="col-md-4"><label for="editVentaNumeroRecibo" class="form-label fw-semibold">Numero Recibo</label><input type="text" class="form-control" id="editVentaNumeroRecibo"></div>
+                        <div class="col-md-4"><label for="editVentaNumeroPedido" class="form-label fw-semibold">Numero Pedido</label><input type="text" class="form-control" id="editVentaNumeroPedido"></div>
+                        <div class="col-md-8"><label for="editVentaProducto" class="form-label fw-semibold">Producto</label><input type="text" class="form-control" id="editVentaProducto"></div>
+                        <div class="col-md-4"><label for="editVentaCantidad" class="form-label fw-semibold">Cantidad</label><input type="number" min="1" class="form-control" id="editVentaCantidad"></div>
+                        <div class="col-12"><label for="editVentaReferencia" class="form-label fw-semibold">Descripcion</label><input type="text" class="form-control" id="editVentaReferencia"></div>
+                        <div class="col-md-4"><label for="editVentaPrecio" class="form-label fw-semibold">Precio</label><input type="number" min="0" step="0.01" class="form-control" id="editVentaPrecio"></div>
+                        <div class="col-md-4"><label for="editVentaAbono" class="form-label fw-semibold">Abono</label><input type="number" min="0" step="0.01" class="form-control" id="editVentaAbono"></div>
+                        <div class="col-md-4"><label for="editVentaMetodoPago" class="form-label fw-semibold">Metodo de Pago</label><select class="form-select" id="editVentaMetodoPago"><option value="">Seleccione</option><option value="Efectivo">Efectivo</option><option value="Tarjeta">Tarjeta</option><option value="Transferencia">Transferencia</option><option value="Nequi">Nequi</option><option value="Daviplata">Daviplata</option></select></div>
+                        <div class="col-md-6"><label for="editVentaVendedor" class="form-label fw-semibold">Vendedor</label><select class="form-select" id="editVentaVendedor"><option value="">Seleccione</option><option value="Mateo">Mateo</option><option value="Marina">Marina</option><option value="Alcop">Alcop</option></select></div>
+                        <div class="col-md-6"><label for="editVentaTelefono" class="form-label fw-semibold">Telefono</label><input type="text" class="form-control" id="editVentaTelefono"></div>
+                        <div class="col-md-6"><label for="editVentaFechaProgramada" class="form-label fw-semibold">Fecha Programacion</label><input type="date" class="form-control" id="editVentaFechaProgramada"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+

@@ -1,0 +1,256 @@
+<!-- Vista: Registro de Instalación -->
+<div class="view-container">
+    <!-- Formulario -->
+    <div class="card shadow-sm border-0 d-none">
+        <div class="card-header bg-gradient-primary text-white">
+            <h6 class="mb-0 fw-semibold">
+                <i class="fas fa-plus-circle me-2"></i>
+                Programación de Instalaciones
+            </h6>
+        </div>
+        <div class="card-body">
+            <form id="dataForm" class="row gy-3 gx-4">
+                <div class="col-md-6">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="instalador" class="form-label fw-semibold">
+                                <i class="fas fa-user-cog me-2 text-primary"></i>Instalador
+                            </label>
+                            <input type="text" class="form-control form-control-lg" id="instalador" placeholder="Ingrese el nombre del instalador">
+                        </div>
+                        <div class="col-12">
+                            <label for="cliente" class="form-label fw-semibold">
+                                <i class="fas fa-user me-2 text-primary"></i>Nombre del Cliente
+                            </label>
+                            <input type="text" class="form-control form-control-lg" id="cliente" placeholder="Ingrese el nombre completo del cliente">
+                        </div>
+                        <div class="col-12">
+                            <label for="telefono" class="form-label fw-semibold">
+                                <i class="fas fa-phone me-2 text-primary"></i>Teléfono de Contacto
+                            </label>
+                            <input type="text" class="form-control form-control-lg" required id="telefono" placeholder="Ingrese el teléfono del cliente">
+                        </div>
+                        <div class="col-12">
+                            <label for="producto" class="form-label fw-semibold">
+                                <i class="fas fa-box me-2 text-primary"></i>Producto a Instalar
+                            </label>
+                            <input type="text" class="form-control form-control-lg" required id="producto" placeholder="Ingrese el nombre del producto">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="cantidad" class="form-label fw-semibold">
+                                <i class="fas fa-hashtag me-2 text-primary"></i>Cantidad
+                            </label>
+                            <input type="number" class="form-control form-control-lg" id="cantidad" placeholder="Ingrese la cantidad" min="1">
+                        </div>
+                        <div class="col-12">
+                            <label for="ubicacion" class="form-label fw-semibold">
+                                <i class="fas fa-map-marker-alt me-2 text-primary"></i>Ubicación de Instalación
+                            </label>
+                            <input type="text" class="form-control form-control-lg" required id="ubicacion" placeholder="Dirección exacta de instalación">
+                        </div>
+                        <div class="col-12">
+                            <label for="fechaEntrega" class="form-label fw-semibold">
+                                <i class="fas fa-calendar-check me-2 text-primary"></i>Fecha de Entrega/Instalación
+                            </label>
+                            <input type="date" class="form-control form-control-lg" id="fechaEntrega">
+                        </div>
+                        <div class="col-12">
+                            <label for="estado" class="form-label fw-semibold">
+                                <i class="fas fa-toggle-on me-2 text-primary"></i>Estado del Pedido
+                            </label>
+                            <select class="form-select form-select-lg" id="estado">
+                                <option value="1">Pendiente</option>
+                                <option value="2">Listo para Instalación</option>
+                                <option value="3">En Instalación</option>
+                                <option value="4">Completado</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="observaciones" class="form-label fw-semibold">
+                                <i class="fas fa-sticky-note me-2 text-primary"></i>Observaciones Especiales
+                            </label>
+                            <textarea class="form-control form-control-lg" id="observaciones" rows="3" placeholder="Ingrese observaciones o instrucciones especiales para la instalación"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-outline-secondary btn-lg px-4 me-md-2">
+                            <i class="fas fa-eraser me-2"></i>Limpiar Formulario
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-lg px-4">
+                            <i class="fas fa-save me-2"></i>Registrar Instalación
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+            <div class="card bg-primary text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Instalaciones Programadas</h6><h3 class="mb-0" id="instKpiProgramadas" data-counter-type="number">0</h3></div><i class="fas fa-calendar-check fs-2 opacity-50"></i></div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-success text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Instalaciones de Hoy</h6><h3 class="mb-0" id="instKpiHoy" data-counter-type="number">0</h3></div><i class="fas fa-calendar-day fs-2 opacity-50"></i></div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-warning text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Instalaciones Pendientes</h6><h3 class="mb-0" id="instKpiPendientes" data-counter-type="number">0</h3></div><i class="fas fa-tools fs-2 opacity-50"></i></div></div>
+        </div>
+    </div>
+
+    <!-- Buscador General -->
+    <div class="card-body pt-3 pb-0 px-0">
+        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive gap-2 flex-wrap">
+            <button class="btn btn-primary btn-new-record" type="button" data-target-view="instalacion-form"><i class="fas fa-plus me-2"></i>Nueva programacion</button>
+            <div class="input-group" style="max-width: 400px;">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text" id="buscadorInstalacion" class="form-control border-start-0" placeholder="Buscar en instalaciones..." aria-label="Buscar">
+            </div>
+            <div class="btn-group" role="group">
+                <button id="btnInstalacion" class="btn btn-outline-primary active" type="button">
+                    <i class="fas fa-list me-2"></i>Todas las Instalaciones
+                </button>
+                <button id="btnInstalacionDia" class="btn btn-outline-primary" type="button">
+                    <i class="fas fa-calendar-day me-2"></i>Instalaciones de Hoy
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-gradient-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="fas fa-table me-2"></i>Registro de Instalaciones
+                    </h6>
+                    <span class="badge bg-white text-primary fs-6 px-3 py-2" id="pedidoEntregar">0</span>
+                </div>
+                <div class="text-end">
+                    <small class="text-white opacity-75">Total de registros</small>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="tablaInstalacion" class="table-responsive">
+                <table id="datatablesSimple" class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="fw-semibold"><i class="fas fa-toggle-on me-2"></i>Estado</th>
+                            <th class="fw-semibold"><i class="fas fa-user-cog me-2"></i>Instalador</th>
+                            <th class="fw-semibold"><i class="fas fa-user me-2"></i>Cliente</th>
+                            <th class="fw-semibold"><i class="fas fa-phone me-2"></i>Teléfono</th>
+                            <th class="fw-semibold"><i class="fas fa-box me-2"></i>Producto</th>
+                            <th class="fw-semibold"><i class="fas fa-hashtag me-2"></i>Cantidad</th>
+                            <th class="fw-semibold"><i class="fas fa-map-marker-alt me-2"></i>Ubicación</th>
+                            <th class="fw-semibold"><i class="fas fa-calendar-check me-2"></i>Fecha Entrega</th>
+                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Observaciones</th>
+                            <th class="fw-semibold"><i class="fas fa-tools me-2"></i>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Los datos se agregarán aquí -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="instalacionDia" class="table-responsive" style="display:none;">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="fw-semibold"><i class="fas fa-toggle-on me-2"></i>Estado</th>
+                            <th class="fw-semibold"><i class="fas fa-user-cog me-2"></i>Instalador</th>
+                            <th class="fw-semibold"><i class="fas fa-user me-2"></i>Cliente</th>
+                            <th class="fw-semibold"><i class="fas fa-phone me-2"></i>Teléfono</th>
+                            <th class="fw-semibold"><i class="fas fa-box me-2"></i>Producto</th>
+                            <th class="fw-semibold"><i class="fas fa-hashtag me-2"></i>Cantidad</th>
+                            <th class="fw-semibold"><i class="fas fa-map-marker-alt me-2"></i>Ubicación</th>
+                            <th class="fw-semibold"><i class="fas fa-calendar-check me-2"></i>Fecha Entrega</th>
+                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="instalacionDiaBody">
+                        <!-- Los datos se agregarán aquí -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editarInstalacionModal" tabindex="-1" aria-labelledby="editarInstalacionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editarInstalacionLabel">
+                    <i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Instalación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="editInstalacionForm">
+                <div class="modal-body text-start">
+                    <input type="hidden" id="editInstId">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="editInstalador" class="form-label fw-semibold">Instalador</label>
+                            <input type="text" class="form-control" id="editInstalador" placeholder="Nombre del instalador">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editTelefono" class="form-label fw-semibold">Teléfono</label>
+                            <input type="text" class="form-control" id="editTelefono" placeholder="Teléfono de contacto">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editCantidad" class="form-label fw-semibold">Cantidad</label>
+                            <input type="number" class="form-control" id="editCantidad" min="1">
+                        </div>
+                        <div class="col-md-8">
+                            <label for="editUbicacion" class="form-label fw-semibold">Ubicación</label>
+                            <input type="text" class="form-control" id="editUbicacion" placeholder="Dirección de instalación">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editFechaEntrega" class="form-label fw-semibold">Fecha de Entrega</label>
+                            <input type="date" class="form-control" id="editFechaEntrega">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editEstado" class="form-label fw-semibold">Estado</label>
+                            <select class="form-select" id="editEstado">
+                                <option value="1">Pendiente</option>
+                                <option value="2">Listo para Instalación</option>
+                                <option value="3">En Instalación</option>
+                                <option value="4">Completado</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="editObservaciones" class="form-label fw-semibold">Observaciones</label>
+                            <textarea class="form-control" id="editObservaciones" rows="3" placeholder="Notas importantes"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 
+
+      
+
+
+

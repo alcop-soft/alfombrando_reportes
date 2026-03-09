@@ -66,9 +66,21 @@
         </div>
     </div>
 
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+            <div class="card bg-danger text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Total Gastos</h6><h3 class="mb-0" id="gastosKpiTotal" data-counter-type="money">$0</h3></div><i class="fas fa-money-bill-wave fs-2 opacity-50"></i></div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-primary text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Gastos del Mes</h6><h3 class="mb-0" id="gastosKpiMes" data-counter-type="money">$0</h3></div><i class="fas fa-calendar fs-2 opacity-50"></i></div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-warning text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Categorias de Gasto</h6><h3 class="mb-0" id="gastosKpiCategorias" data-counter-type="number">0</h3></div><i class="fas fa-tags fs-2 opacity-50"></i></div></div>
+        </div>
+    </div>
+
     <!-- Buscador General -->
     <div class="card-body pt-3 pb-0 px-0">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive gap-2 flex-wrap">
             <div class="input-group" style="max-width: 400px;">
                 <span class="input-group-text bg-white border-end-0">
                     <i class="fas fa-search text-muted"></i>
@@ -87,7 +99,7 @@
     </div>
 
     <!-- Tabla -->
-    <div class="card shadow-sm mb-4 border-0">
+    <div class="card shadow-sm mb-4 border-0 d-none">
         <div class="card-header bg-gradient-primary text-white">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-3">
@@ -213,3 +225,4 @@
 <!-- 
 
       
+

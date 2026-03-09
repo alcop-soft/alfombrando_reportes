@@ -24,39 +24,48 @@
             <ul class="nav-list">
                 <li>
                     <a href="#" class="nav-link" data-view="dashboard">
-                        <i class="fas fa-chart-line me-2"></i>
-                        Dashboard
+                        <i class="fas fa-chart-line me-2"></i>Dashboard
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="nav-link active" data-view="ventas">
-                        <i class="fas fa-shopping-cart me-2"></i>
-                        Registro de Ventas
+                    <a class="nav-link nav-group-toggle" data-bs-toggle="collapse" href="#menuVentas" role="button" aria-expanded="true" aria-controls="menuVentas">
+                        <i class="fas fa-shopping-cart me-2"></i>Ventas
+                        <i class="fas fa-chevron-down ms-auto small"></i>
                     </a>
+                    <div class="collapse show nav-submenu" id="menuVentas">
+                        <a href="#" class="nav-link nav-sub-link active" data-view="ventas-historial">Historial de ventas</a>
+                        <a href="#" class="nav-link nav-sub-link" data-view="ventas-form">Registrar venta</a>
+                    </div>
                 </li>
                 <li>
-                    <a href="#" class="nav-link" data-view="instalacion">
-                        <i class="fas fa-tools me-2"></i>
-                        Programacion Instalacion
+                    <a class="nav-link nav-group-toggle" data-bs-toggle="collapse" href="#menuInst" role="button" aria-expanded="true" aria-controls="menuInst">
+                        <i class="fas fa-tools me-2"></i>Instalaciones
+                        <i class="fas fa-chevron-down ms-auto small"></i>
                     </a>
+                    <div class="collapse show nav-submenu" id="menuInst">
+                        <a href="#" class="nav-link nav-sub-link" data-view="instalacion-historial">Programacion de instalaciones</a>
+                        <a href="#" class="nav-link nav-sub-link" data-view="instalacion-form">Registrar programacion</a>
+                    </div>
                 </li>
                 <li>
-                    <a href="#" class="nav-link" data-view="mercancia">
-                        <i class="fas fa-truck me-2"></i>
-                        Reporte de Mercancia
+                    <a class="nav-link nav-group-toggle" data-bs-toggle="collapse" href="#menuInv" role="button" aria-expanded="true" aria-controls="menuInv">
+                        <i class="fas fa-boxes me-2"></i>Inventario
+                        <i class="fas fa-chevron-down ms-auto small"></i>
                     </a>
+                    <div class="collapse show nav-submenu" id="menuInv">
+                        <a href="#" class="nav-link nav-sub-link" data-view="mercancia-historial">Reporte de mercancia</a>
+                        <a href="#" class="nav-link nav-sub-link" data-view="mercancia-form">Registrar mercancia</a>
+                    </div>
                 </li>
                 <li>
-                    <a href="#" class="nav-link" data-view="gastos">
-                        <i class="fas fa-money-bill-wave me-2"></i>
-                        Reporte de Gastos
+                    <a class="nav-link nav-group-toggle" data-bs-toggle="collapse" href="#menuFinanzas" role="button" aria-expanded="true" aria-controls="menuFinanzas">
+                        <i class="fas fa-money-bill-wave me-2"></i>Finanzas
+                        <i class="fas fa-chevron-down ms-auto small"></i>
                     </a>
-                </li>
-                <li>
-                    <a href="#" class="nav-link" data-view="cartera">
-                        <i class="fas fa-wallet me-2"></i>
-                        Reporte de Cartera
-                    </a>
+                    <div class="collapse show nav-submenu" id="menuFinanzas">
+                        <a href="#" class="nav-link nav-sub-link" data-view="gastos-historial">Gastos</a>
+                        <a href="#" class="nav-link nav-sub-link" data-view="cartera">Cartera</a>
+                    </div>
                 </li>
             </ul>
         </nav>
@@ -79,9 +88,7 @@
                 </button>
             </div>
 
-            <h5 class="header-title fw-semibold mb-0" id="viewTitle">
-                Registro de Ventas
-            </h5>
+            <h5 class="header-title fw-semibold mb-0" id="viewTitle">Dashboard Empresarial</h5>
         </div>
     </header>
 

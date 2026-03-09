@@ -1,14 +1,43 @@
-﻿<div class="view-container dashboard-enterprise">
+<div class="view-container dashboard-enterprise">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-3 col-md-6">
+                    <label for="dashFiltroPeriodo" class="form-label fw-semibold mb-1">Periodo</label>
+                    <select id="dashFiltroPeriodo" class="form-select">
+                        <option value="hoy">Hoy</option>
+                        <option value="mes" selected>Este mes</option>
+                        <option value="anio">Este año</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6 dash-custom-range d-none">
+                    <label for="dashFechaDesde" class="form-label fw-semibold mb-1">Desde</label>
+                    <input type="date" id="dashFechaDesde" class="form-control">
+                </div>
+                <div class="col-lg-3 col-md-6 dash-custom-range d-none">
+                    <label for="dashFechaHasta" class="form-label fw-semibold mb-1">Hasta</label>
+                    <input type="date" id="dashFechaHasta" class="form-control">
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <button class="btn btn-primary w-100" type="button" id="dashAplicarFiltro">
+                        <i class="fas fa-filter me-2"></i>Aplicar filtro
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-3 mb-4">
         <div class="col-xl-3 col-md-6">
             <div class="card bg-gradient-primary text-white border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="mb-1 opacity-75">Ingresos Totales</p>
-                            <h4 class="mb-0" id="dashIngresos">$0</h4>
+                            <p class="mb-1 opacity-75">Ventas Hoy</p>
+                            <h4 class="mb-0" id="dashVentasHoy">$0</h4>
                         </div>
-                        <i class="fas fa-sack-dollar fs-3 opacity-50"></i>
+                        <i class="fas fa-calendar-day fs-3 opacity-50"></i>
                     </div>
                 </div>
             </div>
@@ -18,10 +47,10 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="mb-1 opacity-75">Ventas Registradas</p>
-                            <h4 class="mb-0" id="dashVentas">0</h4>
+                            <p class="mb-1 opacity-75">Ventas del Mes</p>
+                            <h4 class="mb-0" id="dashVentasMes">$0</h4>
                         </div>
-                        <i class="fas fa-receipt fs-3 opacity-50"></i>
+                        <i class="fas fa-chart-line fs-3 opacity-50"></i>
                     </div>
                 </div>
             </div>
@@ -31,8 +60,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="mb-1 opacity-75">Deuda en Cartera</p>
-                            <h4 class="mb-0" id="dashCartera">$0</h4>
+                            <p class="mb-1 opacity-75">Cartera Pendiente</p>
+                            <h4 class="mb-0" id="dashCarteraPendiente">$0</h4>
                         </div>
                         <i class="fas fa-wallet fs-3 opacity-50"></i>
                     </div>
@@ -44,10 +73,10 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="mb-1 opacity-75">Ticket Promedio</p>
-                            <h4 class="mb-0" id="dashTicketPromedio">$0</h4>
+                            <p class="mb-1 opacity-75">Pedidos por Instalar</p>
+                            <h4 class="mb-0" id="dashPedidosInstalar">0</h4>
                         </div>
-                        <i class="fas fa-chart-simple fs-3 opacity-50"></i>
+                        <i class="fas fa-tools fs-3 opacity-50"></i>
                     </div>
                 </div>
             </div>
@@ -55,67 +84,59 @@
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-lg-8">
+        <div class="col-12">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-header bg-light fw-semibold">
-                    <i class="fas fa-chart-line me-2 text-primary"></i>Ingresos por Mes
+                    <i class="fas fa-wave-square me-2 text-primary"></i>Ventas Diarias (Ultimos 30 Dias)
                 </div>
                 <div class="card-body">
-                    <canvas id="chartVentasMes" height="120"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-light fw-semibold">
-                    <i class="fas fa-balance-scale me-2 text-primary"></i>Estado de Cartera
-                </div>
-                <div class="card-body">
-                    <canvas id="chartCarteraEstado" height="120"></canvas>
+                    <canvas id="chartVentas30Dias" height="115"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-lg-7">
+        <div class="col-lg-6">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-header bg-light fw-semibold">
-                    <i class="fas fa-boxes me-2 text-primary"></i>Top Productos (Cantidad)
+                    <i class="fas fa-user-tie me-2 text-primary"></i>Ventas por Vendedor
                 </div>
                 <div class="card-body">
-                    <canvas id="chartProductosTop" height="120"></canvas>
+                    <canvas id="chartVentasVendedor" height="130"></canvas>
                 </div>
             </div>
         </div>
-        <div class="col-lg-5">
+        <div class="col-lg-6">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-header bg-light fw-semibold">
-                    <i class="fas fa-clock-rotate-left me-2 text-primary"></i>Actividad Reciente
+                    <i class="fas fa-boxes me-2 text-primary"></i>Productos Mas Vendidos
                 </div>
                 <div class="card-body">
-                    <ul class="list-group list-group-flush" id="dashHistorial"></ul>
+                    <canvas id="chartProductosTop" height="130"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="card shadow-sm border-0">
-        <div class="card-header bg-light fw-semibold">
-            <i class="fas fa-users me-2 text-primary"></i>Clientes con Mayor Deuda
+        <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-clock-rotate-left me-2 text-primary"></i>Ultimas Ventas</span>
+            <small class="text-muted" id="dashFiltroActualLabel"></small>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table table-hover table-sm mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th>Fecha</th>
                             <th>Cliente</th>
                             <th>Producto</th>
-                            <th>Deuda</th>
-                            <th>Fecha</th>
+                            <th>Cantidad</th>
+                            <th>Total</th>
                         </tr>
                     </thead>
-                    <tbody id="dashTopClientes"></tbody>
+                    <tbody id="dashUltimasVentasBody"></tbody>
                 </table>
             </div>
         </div>

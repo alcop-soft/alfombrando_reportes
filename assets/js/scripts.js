@@ -1,4 +1,4 @@
-let vistActual = "ventas";
+let vistActual = "dashboard";
 
 document.addEventListener("DOMContentLoaded", async () => {
   const sb = window.supabaseClient;
@@ -31,6 +31,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   const intFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
   const fmtInt = (n) => intFmt.format(Math.round(Number(n || 0)));
   const money = (n) => `$${fmtInt(n)}`;
+  const animateCounter = (element, value) => {
+    if (!element) return;
+    const target = Number(value || 0);
+    const type = element.dataset.counterType || "number";
+    const duration = 700;
+    const start = performance.now();
+    const paint = (num) => { element.textContent = type === "money" ? money(num) : fmtInt(num); };
+    const frame = (ts) => {
+      const p = Math.min((ts - start) / duration, 1);
+      paint(target * p);
+      if (p < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  };
   const val = (obj, ...keys) => {
     for (const key of keys) {
       if (obj && obj[key] != null) return obj[key];
@@ -513,10 +527,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
     const contado = ventasVista.reduce((s, v) => s + (Number(v.abono || 0) >= Number(v.total || 0) ? Number(v.total || 0) : 0), 0);
     const credito = ventasVista.reduce((s, v) => s + Math.max(Number(v.total || 0) - Number(v.abono || 0), 0), 0);
+    const ym = today().slice(0, 7);
+    const totalMes = ventasVista.reduce((s, v) => s + (String(v.fecha || "").slice(0, 7) === ym ? Number(v.total || 0) : 0), 0);
     if (q("#ventas")) q("#ventas").textContent = fmtInt(ventasVista.length);
     if (q("#total")) q("#total").textContent = money(total);
     if (q("#totalContado")) q("#totalContado").textContent = money(contado);
     if (q("#totalCredito")) q("#totalCredito").textContent = money(credito);
+    animateCounter(q("#ventasKpiTotalVendido"), total);
+    animateCounter(q("#ventasKpiContado"), contado);
+    animateCounter(q("#ventasKpiCobrar"), credito);
+    animateCounter(q("#ventasKpiMes"), totalMes);
     ensureTablePagination(q("#datatablesSimple"), "ventas", 10);
   }
 
@@ -596,6 +616,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       return `<tr class="${checked ? "table-success" : ""}"><td><input type="checkbox" class="estado-check" data-id="${i.id}" ${checked ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtInt(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
     }).join("");
     if (q("#pedidoEntregar")) q("#pedidoEntregar").textContent = fmtInt(st.instalacion.length);
+    const hoy = today();
+    const instHoy = st.instalacion.filter((i) => asDay(val(i, "fecha_entrega", "fechaEntrega")) === hoy).length;
+    const instPend = st.instalacion.filter((i) => {
+      const f = asDay(val(i, "fecha_entrega", "fechaEntrega"));
+      return !!f && f > hoy;
+    }).length;
+    animateCounter(q("#instKpiProgramadas"), st.instalacion.length);
+    animateCounter(q("#instKpiHoy"), instHoy);
+    animateCounter(q("#instKpiPendientes"), instPend);
     ensureTablePagination(q("#datatablesSimple"), "instalacion", 10);
     document.querySelectorAll(".estado-check").forEach((c) => c.onchange = async function () {
       try { await upd("instalacion", this.dataset.id, { estado: this.checked ? "Completado" : "Pendiente" }); renderInst(); }
@@ -620,11 +649,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const body = q("#datatablesSimple tbody"); if (!body) return;
     body.innerHTML = st.gastos.map((g) => `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${money(val(g, "monto"))}</td><td>${val(g, "fecha_hora", "fechaHora") || "-"}</td><td>${val(g, "descripcion") || "-"}</td></tr>`).join("");
     let tg = 0, tc = 0, ti = 0; st.gastos.forEach((g) => { const m = Number(val(g, "monto") || 0); if (String(val(g, "tipo")) === "1") tg += m; else if (String(val(g, "tipo")) === "2") tc += m; else if (String(val(g, "tipo")) === "3") ti += m; });
+    const ym = today().slice(0, 7);
+    const gastosMes = st.gastos.reduce((s, g) => {
+      const fecha = String(val(g, "fecha_hora", "fechaHora") || "");
+      return s + (String(val(g, "tipo")) === "1" && fecha.slice(0, 7) === ym ? Number(val(g, "monto") || 0) : 0);
+    }, 0);
+    const categorias = new Set(st.gastos.map((g) => String(val(g, "tipo") || "").trim()).filter(Boolean)).size;
     if (q("#totalGastos")) q("#totalGastos").textContent = money(tg);
     if (q("#totalCapitalInicial")) q("#totalCapitalInicial").textContent = money(tc);
     if (q("#totalAnadir")) q("#totalAnadir").textContent = money(ti);
     if (q("#balanceTotal")) q("#balanceTotal").textContent = money(tc + ti - tg);
     if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(st.gastos.length);
+    animateCounter(q("#gastosKpiTotal"), tg);
+    animateCounter(q("#gastosKpiMes"), gastosMes);
+    animateCounter(q("#gastosKpiCategorias"), categorias);
     ensureTablePagination(q("#datatablesSimple"), "gastos", 10);
   }
 
@@ -703,6 +741,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       return `<tr><td>${val(m, "fecha_recepcion", "fechaRecepcion") || "-"}</td><td>${val(m, "transportadora") || "-"}</td><td>${val(m, "remitente") || "-"}</td><td>${val(m, "cliente_destino", "clienteDestino") || "-"}</td><td>${desc.producto}</td><td>${fmtInt(val(m, "cantidad_cajas", "cantidad"))}</td><td>${money(val(m, "precio"))}</td><td>${desc.descripcion}</td><td>${val(m, "observaciones") || "-"}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-mercancia-btn" data-id="${m.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
     }).join("");
     if (q("#mercancia")) q("#mercancia").textContent = fmtInt(st.mercancia.length);
+    const valorTotal = st.mercancia.reduce((s, m) => s + (Number(val(m, "precio") || 0) * Number(val(m, "cantidad_cajas", "cantidad") || 0)), 0);
+    const proveedores = new Set(st.mercancia.map((m) => String(val(m, "transportadora") || "").trim()).filter(Boolean)).size;
+    animateCounter(q("#mercKpiRecibidos"), st.mercancia.length);
+    animateCounter(q("#mercKpiValor"), valorTotal);
+    animateCounter(q("#mercKpiProveedores"), proveedores);
     ensureTablePagination(q("#datatablesSimple"), "mercancia", 10);
   }
 
@@ -774,9 +817,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!cart.length) {
         tb.innerHTML = "";
         if (msg) msg.style.display = "";
-        if (q("#totalCartera")) q("#totalCartera").textContent = money(0);
-        if (q("#clientesActivos")) q("#clientesActivos").textContent = "0";
-        if (q("#promedioCliente")) q("#promedioCliente").textContent = money(0);
+        animateCounter(q("#totalCartera"), 0);
+        animateCounter(q("#clientesActivos"), 0);
+        animateCounter(q("#promedioCliente"), 0);
         if (q("#totalRegistros")) q("#totalRegistros").textContent = "0 registros";
         ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
         return;
@@ -793,9 +836,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       }).join("");
       const total = cart.reduce((s, c) => s + c.saldo, 0);
       const clientes = new Set(cart.map((c) => val(c, "cliente") || "")).size;
-      if (q("#totalCartera")) q("#totalCartera").textContent = money(total);
-      if (q("#clientesActivos")) q("#clientesActivos").textContent = fmtInt(clientes);
-      if (q("#promedioCliente")) q("#promedioCliente").textContent = money(clientes ? total / clientes : 0);
+      animateCounter(q("#totalCartera"), total);
+      animateCounter(q("#clientesActivos"), clientes);
+      animateCounter(q("#promedioCliente"), clientes ? total / clientes : 0);
       if (q("#totalRegistros")) q("#totalRegistros").textContent = `${fmtInt(cart.length)} registros`;
       ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
       if (soloVisual) return;
@@ -877,121 +920,226 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function modDashboard() {
-    await Promise.all([load("ventas"), load("mercancia"), load("gastos")]);
-    const ventas = st.ventas || [];
-    const ventasAgrupadasMap = new Map();
-    ventas.forEach((v, idx) => {
-      const numeroPedido = String(val(v, "numero_pedido", "numeroPedido") || "").trim();
-      const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
-      const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
-      const key = numeroPedido
-        ? `pedido:${numeroPedido}|cliente:${clienteKey}`
-        : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
-      const subtotal = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
-      const abono = Number(val(v, "abono") || 0);
-      const producto = String(val(v, "producto") || "").trim();
-      if (!ventasAgrupadasMap.has(key)) {
-        ventasAgrupadasMap.set(key, {
-          cliente: val(v, "cliente") || "-",
-          fecha: val(v, "fecha") || "-",
-          numeroPedido: numeroPedido || "-",
-          productos: [],
-          total: 0,
-          abono: 0
+    const sumVenta = (v) => {
+      const totalCampo = Number(val(v, "total"));
+      if (Number.isFinite(totalCampo) && totalCampo > 0) return totalCampo;
+      return Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
+    };
+    const agruparVentas = (rows) => {
+      const map = new Map();
+      rows.forEach((v, idx) => {
+        const numeroPedido = String(val(v, "numero_pedido", "numeroPedido") || "").trim();
+        const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
+        const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
+        const key = numeroPedido
+          ? `pedido:${numeroPedido}|cliente:${clienteKey}`
+          : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
+        const total = sumVenta(v);
+        const abono = Number(val(v, "abono") || 0);
+        const cantidad = Number(val(v, "cantidad") || 0);
+        const producto = String(val(v, "producto") || "").trim();
+
+        if (!map.has(key)) {
+          map.set(key, {
+            fecha: val(v, "fecha") || "-",
+            cliente: val(v, "cliente") || "-",
+            vendedor: val(v, "vendedor") || "Sin vendedor",
+            productos: [],
+            cantidad: 0,
+            total: 0,
+            abono: 0
+          });
+        }
+        const g = map.get(key);
+        g.total += total;
+        g.cantidad += cantidad;
+        g.abono = Math.max(Number(g.abono || 0), abono);
+        if (producto && !g.productos.includes(producto)) g.productos.push(producto);
+      });
+      return Array.from(map.values()).map((x) => ({ ...x, saldo: Math.max(Number(x.total || 0) - Number(x.abono || 0), 0) }));
+    };
+    const inRange = (fecha, from, to) => {
+      const d = asDay(fecha);
+      if (!d || d === "-") return false;
+      return (!from || d >= from) && (!to || d <= to);
+    };
+    const rangeByFiltro = () => {
+      const periodo = String(q("#dashFiltroPeriodo")?.value || "mes");
+      const hoy = today();
+      const year = hoy.slice(0, 4);
+      const month = hoy.slice(0, 7);
+      if (periodo === "hoy") return { from: hoy, to: hoy, label: "Hoy" };
+      if (periodo === "mes") return { from: `${month}-01`, to: hoy, label: "Este mes" };
+      if (periodo === "anio") return { from: `${year}-01-01`, to: hoy, label: "Este año" };
+      const from = q("#dashFechaDesde")?.value || "";
+      const to = q("#dashFechaHasta")?.value || "";
+      return { from, to, label: from && to ? `Personalizado (${from} a ${to})` : "Personalizado" };
+    };
+    const toggleCustomRange = () => {
+      const show = String(q("#dashFiltroPeriodo")?.value || "") === "custom";
+      document.querySelectorAll(".dash-custom-range").forEach((el) => el.classList.toggle("d-none", !show));
+    };
+
+    let ventas = [];
+    let instalaciones = [];
+    try {
+      const [resVentas, resInst] = await Promise.all([
+        sb.from(t.ventas).select("id,fecha,numero_recibo,numero_pedido,producto,cantidad,precio,total,abono,vendedor,cliente").order("fecha", { ascending: false }),
+        sb.from(t.instalacion).select("id,estado,fecha_entrega")
+      ]);
+      if (resVentas.error) throw resVentas.error;
+      if (resInst.error) throw resInst.error;
+      ventas = resVentas.data || [];
+      instalaciones = resInst.data || [];
+    } catch (err) {
+      alertx(err.message || "No se pudo cargar dashboard", "error");
+      return;
+    }
+
+    const ventasAgrupadasAll = agruparVentas(ventas);
+    const hoy = today();
+    const mesActual = hoy.slice(0, 7);
+
+    const ventasHoy = ventasAgrupadasAll.filter((v) => asDay(v.fecha) === hoy).reduce((s, v) => s + Number(v.total || 0), 0);
+    const ventasMes = ventasAgrupadasAll.filter((v) => String(v.fecha || "").slice(0, 7) === mesActual).reduce((s, v) => s + Number(v.total || 0), 0);
+
+    const renderDashboard = () => {
+      const range = rangeByFiltro();
+      if (range.from && range.to && range.from > range.to) {
+        alertx("El rango personalizado es invalido", "warning");
+        return;
+      }
+      if (q("#dashFiltroActualLabel")) q("#dashFiltroActualLabel").textContent = range.label;
+
+      const ventasFiltradas = ventas.filter((v) => inRange(val(v, "fecha"), range.from, range.to));
+      const ventasAgrupadas = agruparVentas(ventasFiltradas);
+      const carteraPendiente = ventasAgrupadas.reduce((s, v) => s + Number(v.saldo || 0), 0);
+      const pedidosInstalar = instalaciones.filter((i) => {
+        const estado = String(val(i, "estado") || "").toLowerCase();
+        const noCompletado = !estado.includes("completado");
+        const fecha = val(i, "fecha_entrega", "fechaEntrega");
+        return noCompletado && inRange(fecha, range.from, range.to);
+      }).length;
+
+      if (q("#dashVentasHoy")) q("#dashVentasHoy").textContent = money(ventasHoy);
+      if (q("#dashVentasMes")) q("#dashVentasMes").textContent = money(ventasMes);
+      if (q("#dashCarteraPendiente")) q("#dashCarteraPendiente").textContent = money(carteraPendiente);
+      if (q("#dashPedidosInstalar")) q("#dashPedidosInstalar").textContent = fmtInt(pedidosInstalar);
+
+      const ventasUlt30 = {};
+      const endDate = range.to || hoy;
+      const end = new Date(`${endDate}T00:00:00`);
+      for (let i = 29; i >= 0; i -= 1) {
+        const d = new Date(end);
+        d.setDate(end.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        ventasUlt30[key] = 0;
+      }
+      ventasAgrupadas.forEach((v) => {
+        const f = asDay(v.fecha);
+        if (Object.prototype.hasOwnProperty.call(ventasUlt30, f)) ventasUlt30[f] += Number(v.total || 0);
+      });
+
+      const porVendedor = {};
+      ventasAgrupadas.forEach((v) => {
+        const vend = String(v.vendedor || "Sin vendedor").trim() || "Sin vendedor";
+        porVendedor[vend] = (porVendedor[vend] || 0) + Number(v.total || 0);
+      });
+      const vendedores = Object.entries(porVendedor).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+      const prodTop = {};
+      ventasFiltradas.forEach((v) => {
+        const p = canonProducto(val(v, "producto"));
+        prodTop[p] = (prodTop[p] || 0) + Number(val(v, "cantidad") || 0);
+      });
+      const topProductos = Object.entries(prodTop).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+      if (charts.ventas30Dias) charts.ventas30Dias.destroy();
+      if (charts.ventasVendedor) charts.ventasVendedor.destroy();
+      if (charts.productosTop) charts.productosTop.destroy();
+
+      if (window.Chart && q("#chartVentas30Dias")) {
+        charts.ventas30Dias = new window.Chart(q("#chartVentas30Dias"), {
+          type: "line",
+          data: {
+            labels: Object.keys(ventasUlt30),
+            datasets: [{
+              label: "Ventas",
+              data: Object.values(ventasUlt30),
+              borderColor: "#1d4ed8",
+              backgroundColor: "rgba(29, 78, 216, 0.15)",
+              fill: true,
+              tension: 0.25
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } } }
         });
       }
-      const g = ventasAgrupadasMap.get(key);
-      g.total += subtotal;
-      g.abono = Math.max(Number(g.abono || 0), abono);
-      if (producto && !g.productos.includes(producto)) g.productos.push(producto);
-    });
-    const ventasAgrupadas = Array.from(ventasAgrupadasMap.values()).map((v) => ({ ...v, saldo: Math.max(Number(v.total || 0) - Number(v.abono || 0), 0) }));
-    const ingresos = ventas.reduce((s, v) => s + Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0), 0);
-    const deuda = ventasAgrupadas.reduce((s, v) => s + Number(v.saldo || 0), 0);
-    const ticketProm = ventasAgrupadas.length ? ingresos / ventasAgrupadas.length : 0;
-    if (q("#dashIngresos")) q("#dashIngresos").textContent = money(ingresos);
-    if (q("#dashVentas")) q("#dashVentas").textContent = fmtInt(ventasAgrupadas.length);
-    if (q("#dashCartera")) q("#dashCartera").textContent = money(deuda);
-    if (q("#dashTicketPromedio")) q("#dashTicketPromedio").textContent = money(ticketProm);
+      if (window.Chart && q("#chartVentasVendedor")) {
+        charts.ventasVendedor = new window.Chart(q("#chartVentasVendedor"), {
+          type: "bar",
+          data: {
+            labels: vendedores.map((x) => x[0]),
+            datasets: [{ label: "Ventas", data: vendedores.map((x) => x[1]), backgroundColor: "#0f766e" }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+      }
+      if (window.Chart && q("#chartProductosTop")) {
+        charts.productosTop = new window.Chart(q("#chartProductosTop"), {
+          type: "pie",
+          data: {
+            labels: topProductos.map((x) => x[0]),
+            datasets: [{
+              data: topProductos.map((x) => x[1]),
+              backgroundColor: ["#2563eb", "#0d9488", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#65a30d", "#ea580c"]
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+        });
+      }
 
-    const porMes = {};
-    ventas.forEach((v) => {
-      const f = String(val(v, "fecha") || "").slice(0, 7) || "Sin fecha";
-      porMes[f] = (porMes[f] || 0) + Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
-    });
-    const prodTop = {};
-    ventas.forEach((v) => {
-      const p = canonProducto(val(v, "producto"));
-      prodTop[p] = (prodTop[p] || 0) + Number(val(v, "cantidad") || 0);
-    });
-    const topEntries = Object.entries(prodTop).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const ultimas = [...ventasAgrupadas].sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || ""))).slice(0, 10);
+      const body = q("#dashUltimasVentasBody");
+      if (body) {
+        body.innerHTML = ultimas.length
+          ? ultimas.map((v) => {
+            const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
+            return `<tr><td>${v.fecha || "-"}</td><td>${v.cliente || "-"}</td><td>${productoTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(v.total)}</td></tr>`;
+          }).join("")
+          : '<tr><td colspan="5" class="text-center text-muted">Sin ventas en el periodo</td></tr>';
+      }
+    };
 
-    if (charts.ventasMes) charts.ventasMes.destroy();
-    if (charts.productosTop) charts.productosTop.destroy();
-    if (charts.carteraEstado) charts.carteraEstado.destroy();
-    if (window.Chart && q("#chartVentasMes")) {
-      charts.ventasMes = new window.Chart(q("#chartVentasMes"), {
-        type: "line",
-        data: {
-          labels: Object.keys(porMes),
-          datasets: [{ label: "Ingresos", data: Object.values(porMes), borderColor: "#1d4ed8", backgroundColor: "rgba(29,78,216,0.15)", fill: true, tension: 0.25 }]
-        },
-        options: { responsive: true, plugins: { legend: { display: false } } }
-      });
+    const filtroPeriodo = q("#dashFiltroPeriodo");
+    const btnAplicar = q("#dashAplicarFiltro");
+    if (filtroPeriodo) {
+      filtroPeriodo.onchange = () => {
+        toggleCustomRange();
+        if (String(filtroPeriodo.value) !== "custom") renderDashboard();
+      };
     }
-    const ventasPagadas = ventasAgrupadas.filter((v) => Number(v.abono || 0) >= Number(v.total || 0)).length;
-    const ventasPend = Math.max(ventasAgrupadas.length - ventasPagadas, 0);
-    if (window.Chart && q("#chartCarteraEstado")) {
-      charts.carteraEstado = new window.Chart(q("#chartCarteraEstado"), {
-        type: "doughnut",
-        data: { labels: ["Pagadas", "Pendientes"], datasets: [{ data: [ventasPagadas, ventasPend], backgroundColor: ["#15803d", "#d97706"] }] },
-        options: { responsive: true, plugins: { legend: { position: "bottom" } } }
-      });
-    }
-    if (window.Chart && q("#chartProductosTop")) {
-      charts.productosTop = new window.Chart(q("#chartProductosTop"), {
-        type: "bar",
-        data: {
-          labels: topEntries.map((x) => x[0]),
-          datasets: [{ data: topEntries.map((x) => x[1]), backgroundColor: "#0369a1" }]
-        },
-        options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false } } }
-      });
-    }
-    const carteraRows = ventasAgrupadas
-      .filter((x) => x.saldo > 0)
-      .sort((a, b) => b.saldo - a.saldo)
-      .slice(0, 8)
-      .map((x) => {
-        const producto = x.productos.length > 1 ? `${x.productos[0]} (+${x.productos.length - 1})` : (x.productos[0] || "-");
-        return { cliente: x.cliente, producto, saldo: x.saldo, fecha: x.fecha };
-      });
-    const tb = q("#dashTopClientes");
-    if (tb) tb.innerHTML = carteraRows.length
-      ? carteraRows.map((r) => `<tr><td>${r.cliente}</td><td>${r.producto}</td><td>${money(r.saldo)}</td><td>${r.fecha}</td></tr>`).join("")
-      : '<tr><td colspan="4" class="text-center text-muted">Sin deudas registradas</td></tr>';
-    const hist = JSON.parse(localStorage.getItem("historial_cambios") || "[]").slice(0, 8);
-    const ul = q("#dashHistorial");
-    if (ul) ul.innerHTML = hist.length
-      ? hist.map((h) => `<li class="list-group-item px-0"><div class="small text-muted">${String(h.at || "").slice(0, 16).replace("T", " ")}</div><div><span class="badge bg-light text-dark me-2">${h.module || "-"}</span>${h.action || "-"}</div></li>`).join("")
-      : '<li class="list-group-item px-0 text-muted">Sin actividad reciente</li>';
+    if (btnAplicar) btnAplicar.onclick = () => renderDashboard();
+
+    toggleCustomRange();
+    renderDashboard();
   }
 
   function showDay() {
     const h = today();
-    if (vistActual === "ventas") {
+    if (vistActual.startsWith("ventas")) {
       const rows = st.ventas.filter((x) => asDay(val(x, "fecha")) === h).map((x) => `<tr><td>${val(x, "fecha") || "-"}</td><td>${val(x, "producto") || "-"}</td><td>${money(Number(val(x, "cantidad") || 0) * Number(val(x, "precio") || 0))}</td></tr>`).join("") || '<tr><td colspan="3" class="text-center">No hay ventas para hoy</td></tr>';
       if (q("#ventasDiaBody")) q("#ventasDiaBody").innerHTML = rows; if (q("#tablaVentas")) q("#tablaVentas").style.display = "none"; if (q("#ventasDia")) q("#ventasDia").style.display = "";
     }
-    if (vistActual === "instalacion") {
+    if (vistActual.startsWith("instalacion")) {
       const rows = st.instalacion.filter((x) => asDay(val(x, "fecha_entrega", "fechaEntrega")) === h).map((x) => `<tr><td>${val(x, "estado") || "-"}</td><td>${val(x, "instalador") || "-"}</td><td>${val(x, "cliente") || "-"}</td><td>${val(x, "telefono") || "-"}</td><td>${val(x, "producto") || "-"}</td><td>${fmtInt(val(x, "cantidad"))}</td><td>${val(x, "ubicacion") || "-"}</td><td>${val(x, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(x, "observaciones") || "-"}</td></tr>`).join("") || '<tr><td colspan="9" class="text-center">No hay instalaciones para hoy</td></tr>';
       if (q("#instalacionDiaBody")) q("#instalacionDiaBody").innerHTML = rows; if (q("#tablaInstalacion")) q("#tablaInstalacion").style.display = "none"; if (q("#instalacionDia")) q("#instalacionDia").style.display = "";
     }
-    if (vistActual === "gastos") {
+    if (vistActual.startsWith("gastos")) {
       const rows = st.gastos.filter((x) => asDay(val(x, "fecha_hora", "fechaHora")) === h).map((x) => `<tr><td>${tipoGasto(val(x, "tipo"))}</td><td>${money(val(x, "monto"))}</td><td>${val(x, "fecha_hora", "fechaHora") || "-"}</td><td>${val(x, "descripcion") || "-"}</td></tr>`).join("") || '<tr><td colspan="4" class="text-center">No hay gastos para hoy</td></tr>';
       if (q("#gastosDiaBody")) q("#gastosDiaBody").innerHTML = rows; if (q("#tablaGastos")) q("#tablaGastos").style.display = "none"; if (q("#gastosDia")) q("#gastosDia").style.display = "";
     }
-    if (vistActual === "mercancia") {
+    if (vistActual.startsWith("mercancia")) {
       const rows = st.mercancia.filter((x) => asDay(val(x, "fecha_recepcion", "fechaRecepcion")) === h).map((x) => {
         const desc = splitMercanciaDesc(val(x, "descripcion"));
         return `<tr><td>${val(x, "fecha_recepcion", "fechaRecepcion") || "-"}</td><td>${val(x, "transportadora") || "-"}</td><td>${val(x, "remitente") || "-"}</td><td>${val(x, "cliente_destino", "clienteDestino") || "-"}</td><td>${desc.producto}</td><td>${fmtInt(val(x, "cantidad_cajas", "cantidad"))}</td><td>${money(val(x, "precio"))}</td><td>${desc.descripcion}</td><td>${val(x, "observaciones") || "-"}</td></tr>`;
@@ -1011,6 +1159,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const id = e.target && e.target.id;
     if (["btnVentasDia", "btnInstalacionDia", "btnGastosDia", "btnmercanciaDia"].includes(id)) showDay();
     if (["btnVentas", "btnInstalacion", "btnGastos", "btnmercancia"].includes(id)) showAll();
+    const btnNew = e.target.closest(".btn-new-record");
+    if (btnNew) {
+      const target = btnNew.getAttribute("data-target-view");
+      if (target) change(target);
+    }
+    const btnCancel = e.target.closest(".btn-cancel-form");
+    if (btnCancel) {
+      const target = btnCancel.getAttribute("data-target-view");
+      if (target) change(target);
+    }
   });
 
   const sidebar = q("#sidebar"), overlay = q("#sidebarOverlay"), openBtn = q("#btnToggleSidebar"), closeBtn = q("#btnCloseSidebar");
@@ -1018,9 +1176,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (closeBtn) closeBtn.onclick = () => { sidebar.classList.remove("show"); overlay.classList.remove("show"); };
   if (overlay) overlay.onclick = () => { sidebar.classList.remove("show"); overlay.classList.remove("show"); };
 
-  const views = { dashboard: "Dashboard Empresarial", ventas: "Registro de Ventas", instalacion: "Reporte de Instalacion", mercancia: "Reporte de Mercancia", gastos: "Reporte de Gastos", cartera: "Cartera de Clientes" };
-  const links = document.querySelectorAll(".nav-link"), title = q("#viewTitle");
-  async function init(v) { showAll(); if (v === "dashboard") await modDashboard(); else if (v === "ventas") await modVentas(); else if (v === "instalacion") await modInst(); else if (v === "gastos") await modGastos(); else if (v === "mercancia") await modMercancia(); else if (v === "cartera") await modCartera(); }
+  const views = {
+    dashboard: "Dashboard Empresarial",
+    "ventas-historial": "Historial de Ventas",
+    "ventas-form": "Registrar Venta",
+    "instalacion-historial": "Programacion de Instalaciones",
+    "instalacion-form": "Registrar Programacion",
+    "mercancia-historial": "Reporte de Mercancia",
+    "mercancia-form": "Registrar Mercancia",
+    "gastos-historial": "Gastos",
+    "gastos-form": "Registrar Gasto",
+    cartera: "Cartera de Clientes"
+  };
+  const links = document.querySelectorAll(".nav-link[data-view]"), title = q("#viewTitle");
+  async function init(v) {
+    showAll();
+    if (v === "dashboard") await modDashboard();
+    else if (v.startsWith("ventas")) await modVentas();
+    else if (v.startsWith("instalacion")) await modInst();
+    else if (v.startsWith("gastos")) await modGastos();
+    else if (v.startsWith("mercancia")) await modMercancia();
+    else if (v === "cartera") await modCartera();
+  }
   function change(v) {
     const c = q("#viewContainer"); if (!c || !views[v]) return;
     c.innerHTML = '<div class="text-center p-5"><div class="spinner-border"></div></div>'; vistActual = v;
