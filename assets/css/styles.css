@@ -11768,3 +11768,13 @@ body {
 .ventas-form-grid .alert {
     border-radius: 0.75rem;
 }
+
+/* Dashboard */
+.dashboard-enterprise .card-header {
+    border-bottom: 1px solid #eef2f7;
+}
+
+.dashboard-enterprise .list-group-item {
+    border-left: 0;
+    border-right: 0;
+}

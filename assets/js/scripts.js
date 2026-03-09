@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let instEditClickBound = false;
   let ventasEditClickBound = false;
   let mercanciaEditClickBound = false;
+  const charts = {};
 
   const q = (s) => document.querySelector(s);
   const txt = (s) => String(s || "").trim();
@@ -49,13 +50,110 @@ document.addEventListener("DOMContentLoaded", async () => {
       descripcion: rest.join("|").trim() || raw.trim() || "-"
     };
   };
+  const canonProducto = (raw) => {
+    let s = String(raw || "").toLowerCase().trim();
+    if (!s) return "Sin producto";
+    // Normaliza acentos y caracteres raros
+    s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // Corrige errores tipicos de digitacion
+    s = s.replace(/\bpaple\b/g, "papel");
+    s = s.replace(/\bcolgaduraa?\b/g, "colgadura");
+    s = s.replace(/\bcolgadrua\b/g, "colgadura");
+    s = s.replace(/\bde\s+colgadura\b/g, "de colgadura");
+    // Limpia separadores y espacios
+    s = s.replace(/[_\-\/.,;:]+/g, " ").replace(/\s+/g, " ").trim();
+    // Reglas de unificacion por familia
+    if (s.includes("papel") && s.includes("colgadura")) return "Papel de colgadura";
+    if (s.includes("vinilo")) return "Vinilo";
+    if (s.includes("cenefa")) return "Cenefa";
+    if (s.includes("pegante") || s.includes("adhesivo")) return "Pegante";
+    // Titulo por defecto
+    return s.split(" ").map((w) => w ? `${w[0].toUpperCase()}${w.slice(1)}` : "").join(" ");
+  };
   const alertx = (m, type = "info") => {
+    if (window.Swal) {
+      window.Swal.fire({
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: 2200,
+        timerProgressBar: true,
+        icon: type === "error" ? "error" : type === "warning" ? "warning" : type === "success" ? "success" : "info",
+        title: m
+      });
+      return;
+    }
     const c = q("#alertasContainer") || (() => { const d = document.createElement("div"); d.id = "alertasContainer"; d.className = "position-fixed top-0 end-0 p-3"; d.style.zIndex = "9999"; document.body.appendChild(d); return d; })();
     const e = document.createElement("div");
     e.className = `alert alert-${type === "error" ? "danger" : type} shadow-sm mb-2`;
     e.textContent = m;
     c.appendChild(e);
     setTimeout(() => e.remove(), 3500);
+  };
+  const logHistory = (module, action, payload = {}) => {
+    const key = "historial_cambios";
+    const base = JSON.parse(localStorage.getItem(key) || "[]");
+    base.unshift({ module, action, payload, at: new Date().toISOString() });
+    localStorage.setItem(key, JSON.stringify(base.slice(0, 500)));
+  };
+  const normalizeSortVal = (v) => {
+    const t2 = String(v || "").trim();
+    const n = Number(t2.replace(/[^\d.-]/g, ""));
+    if (!Number.isNaN(n) && t2.match(/[\d]/)) return n;
+    const d = Date.parse(t2);
+    if (!Number.isNaN(d) && t2.match(/\d{4}-\d{2}-\d{2}/)) return d;
+    return t2.toLowerCase();
+  };
+  const enableTableSort = (table) => {
+    if (!table || table.dataset.sortReady) return;
+    const ths = table.querySelectorAll("thead th");
+    ths.forEach((th, idx) => {
+      th.style.cursor = "pointer";
+      th.title = "Ordenar";
+      th.addEventListener("click", () => {
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+        const rows = [...tbody.querySelectorAll("tr")];
+        const asc = th.dataset.asc !== "1";
+        th.dataset.asc = asc ? "1" : "0";
+        rows.sort((a, b) => {
+          const av = normalizeSortVal(a.children[idx]?.innerText || "");
+          const bv = normalizeSortVal(b.children[idx]?.innerText || "");
+          if (av < bv) return asc ? -1 : 1;
+          if (av > bv) return asc ? 1 : -1;
+          return 0;
+        });
+        tbody.innerHTML = "";
+        rows.forEach((r) => tbody.appendChild(r));
+      });
+    });
+    table.dataset.sortReady = "1";
+  };
+  const exportTableExcel = (table, fileName) => {
+    if (!window.XLSX || !table) return alertx("No se pudo exportar a Excel", "error");
+    const wb = window.XLSX.utils.table_to_book(table, { sheet: "Reporte" });
+    window.XLSX.writeFile(wb, `${fileName}_${today()}.xlsx`);
+  };
+  const exportTablePdf = (table, title) => {
+    if (!window.jspdf || !window.jspdf.jsPDF || !table) return alertx("No se pudo exportar a PDF", "error");
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.text(title, 14, 12);
+    doc.autoTable({ html: table, startY: 16, styles: { fontSize: 7 } });
+    doc.save(`${title.replace(/\s+/g, "_").toLowerCase()}_${today()}.pdf`);
+  };
+  const mountTableTools = (moduleKey) => {
+    const table = q("#datatablesSimple") || q("#carteraTabla")?.closest("table");
+    const host = q(".toolbar-responsive") || q("#btnExportarCartera")?.closest(".row");
+    if (!table || !host) return;
+    enableTableSort(table);
+    if (host.querySelector(".export-tools")) return;
+    const wrap = document.createElement("div");
+    wrap.className = "btn-group export-tools";
+    wrap.innerHTML = `<button class="btn btn-outline-success" type="button" id="btnExcel_${moduleKey}"><i class="fas fa-file-excel me-2"></i>Excel</button><button class="btn btn-outline-danger" type="button" id="btnPdf_${moduleKey}"><i class="fas fa-file-pdf me-2"></i>PDF</button>`;
+    host.appendChild(wrap);
+    q(`#btnExcel_${moduleKey}`)?.addEventListener("click", () => exportTableExcel(table, moduleKey));
+    q(`#btnPdf_${moduleKey}`)?.addEventListener("click", () => exportTablePdf(table, `Reporte ${moduleKey}`));
   };
 
   async function load(k) {
@@ -66,11 +164,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function ins(k, p) {
     const { error } = await sb.from(t[k]).insert([p]);
     if (error) throw error;
+    logHistory(k, "crear", p);
     await load(k);
   }
   async function upd(k, id, p) {
     const { error } = await sb.from(t[k]).update(p).eq("id", id);
     if (error) throw error;
+    logHistory(k, "editar", { id, ...p });
     await load(k);
   }
 
@@ -90,19 +190,104 @@ document.addEventListener("DOMContentLoaded", async () => {
     const editForm = q("#editVentaForm");
     const modalEl = q("#editarVentaModal");
     const modal = modalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+    const btnAgregar = q("#btnAgregarProducto");
+    const carritoBody = q("#carritoVentasBody");
+    const carritoTotalEl = q("#carritoTotalGeneral");
+    const carritoCantidadEl = q("#carritoCantidad");
+    let carritoProductos = [];
+
+    const renderCarrito = () => {
+      if (!carritoBody) return;
+      if (!carritoProductos.length) {
+        carritoBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay productos agregados</td></tr>';
+      } else {
+        carritoBody.innerHTML = carritoProductos.map((item, i) =>
+          `<tr><td>${item.producto}</td><td>${item.descripcion || "-"}</td><td>${fmtInt(item.cantidad)}</td><td>${money(item.precio)}</td><td>${money(item.subtotal)}</td><td><button type="button" class="btn btn-sm btn-outline-danger quitar-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></td></tr>`
+        ).join("");
+      }
+      const total = carritoProductos.reduce((s, x) => s + Number(x.subtotal || 0), 0);
+      if (carritoTotalEl) carritoTotalEl.textContent = money(total);
+      if (carritoCantidadEl) carritoCantidadEl.textContent = fmtInt(carritoProductos.length);
+    };
+
+    const limpiarCarrito = () => {
+      carritoProductos = [];
+      renderCarrito();
+    };
+
+    if (btnAgregar && !btnAgregar.dataset.bound) {
+      btnAgregar.addEventListener("click", () => {
+        const producto = txt(q("#producto")?.value);
+        const descripcion = txt(q("#referencia")?.value);
+        const cantidad = Number(q("#cantidad")?.value || 0);
+        const precio = Number(q("#precio")?.value || 0);
+        if (!producto) return alertx("Ingresa el producto", "warning");
+        if (!cantidad || cantidad <= 0) return alertx("Cantidad invalida", "warning");
+        if (!precio || precio <= 0) return alertx("Precio invalido", "warning");
+        carritoProductos.push({ producto, descripcion, cantidad, precio, subtotal: cantidad * precio });
+        if (q("#producto")) q("#producto").value = "";
+        if (q("#referencia")) q("#referencia").value = "";
+        if (q("#cantidad")) q("#cantidad").value = "";
+        if (q("#precio")) q("#precio").value = "";
+        renderCarrito();
+        alertx("Producto agregado al carrito", "success");
+      });
+      btnAgregar.dataset.bound = "1";
+    }
+
+    if (carritoBody && !carritoBody.dataset.bound) {
+      carritoBody.addEventListener("click", (e) => {
+        const btn = e.target.closest(".quitar-item-btn");
+        if (!btn) return;
+        const i = Number(btn.dataset.i);
+        carritoProductos.splice(i, 1);
+        renderCarrito();
+      });
+      carritoBody.dataset.bound = "1";
+    }
+
     form.onsubmit = async (e) => {
       e.preventDefault();
+      if (!carritoProductos.length) return alertx("Agrega al menos un producto al carrito", "warning");
       try {
-        await ins("ventas", {
-          fecha: q("#fecha").value, numero_recibo: txt(q("#numeroRecibo")?.value), numero_pedido: txt(q("#numeroPedido")?.value),
-          producto: q("#producto").value, descripcion: q("#referencia").value,
-          cantidad: Number(q("#cantidad").value || 0), precio: Number(q("#precio").value || 0), abono: Number(q("#abono").value || 0),
-          metodo_pago: q("#metodoPago").value, vendedor: q("#vendedor").value, cliente: q("#cliente").value, ubicacion_cliente: q("#ub").value, fecha_programacion: q("#fechaProgramada").value,
-          total: Number(q("#cantidad").value || 0) * Number(q("#precio").value || 0)
-        });
-        form.reset(); renderVentas(); alertx("Venta registrada", "success");
+        const fecha = q("#fecha").value;
+        const numeroRecibo = txt(q("#numeroRecibo")?.value);
+        const numeroPedido = txt(q("#numeroPedido")?.value);
+        const abono = Number(q("#abono").value || 0);
+        const metodoPago = q("#metodoPago").value;
+        const vendedor = q("#vendedor").value;
+        const cliente = q("#cliente").value;
+        const ubicacion = q("#ub").value;
+        const fechaProgramada = q("#fechaProgramada").value;
+        for (const item of carritoProductos) {
+          await ins("ventas", {
+            fecha,
+            numero_recibo: numeroRecibo,
+            numero_pedido: numeroPedido,
+            producto: item.producto,
+            descripcion: item.descripcion,
+            cantidad: item.cantidad,
+            precio: item.precio,
+            abono,
+            metodo_pago: metodoPago,
+            vendedor,
+            cliente,
+            ubicacion_cliente: ubicacion,
+            fecha_programacion: fechaProgramada,
+            total: item.cantidad * item.precio
+          });
+        }
+        form.reset();
+        limpiarCarrito();
+        renderVentas();
+        if (window.Swal) {
+          await window.Swal.fire({ icon: "success", title: "Venta registrada correctamente", timer: 1800, showConfirmButton: false });
+        } else {
+          alertx("Venta registrada correctamente", "success");
+        }
       } catch (err) { alertx(err.message || "No se pudo guardar venta", "error"); }
     };
+    form.addEventListener("reset", () => setTimeout(() => limpiarCarrito(), 0));
     if (editForm && !editForm.dataset.bound) {
       editForm.onsubmit = async (e) => {
         e.preventDefault();
@@ -158,7 +343,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }, { passive: true });
       ventasEditClickBound = true;
     }
-    renderVentas(); buscador("buscadorVentas", "datatablesSimple");
+    renderCarrito();
+    renderVentas(); buscador("buscadorVentas", "datatablesSimple"); mountTableTools("ventas");
   }
   function renderVentas() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
@@ -245,7 +431,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       instEditClickBound = true;
     }
 
-    renderInst(); buscador("buscadorInstalacion", "datatablesSimple");
+    renderInst(); buscador("buscadorInstalacion", "datatablesSimple"); mountTableTools("instalacion");
   }
   function renderInst() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
@@ -272,7 +458,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         form.reset(); renderGastos(); alertx("Movimiento registrado", "success");
       } catch (err) { alertx(err.message || "No se pudo guardar movimiento", "error"); }
     };
-    renderGastos(); buscador("buscadorGastos", "datatablesSimple");
+    renderGastos(); buscador("buscadorGastos", "datatablesSimple"); mountTableTools("gastos");
   }
   function renderGastos() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
@@ -351,7 +537,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }, { passive: true });
       mercanciaEditClickBound = true;
     }
-    renderMercancia(); buscador("buscadorMercancia", "datatablesSimple");
+    renderMercancia(); buscador("buscadorMercancia", "datatablesSimple"); mountTableTools("mercancia");
   }
   function renderMercancia() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
@@ -484,6 +670,84 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     renderFiltered();
+    mountTableTools("cartera");
+  }
+
+  async function modDashboard() {
+    await Promise.all([load("ventas"), load("mercancia"), load("gastos")]);
+    const ventas = st.ventas || [];
+    const ingresos = ventas.reduce((s, v) => s + Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0), 0);
+    const deuda = ventas.reduce((s, v) => {
+      const t2 = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
+      return s + Math.max(t2 - Number(val(v, "abono") || 0), 0);
+    }, 0);
+    const ticketProm = ventas.length ? ingresos / ventas.length : 0;
+    if (q("#dashIngresos")) q("#dashIngresos").textContent = money(ingresos);
+    if (q("#dashVentas")) q("#dashVentas").textContent = fmtInt(ventas.length);
+    if (q("#dashCartera")) q("#dashCartera").textContent = money(deuda);
+    if (q("#dashTicketPromedio")) q("#dashTicketPromedio").textContent = money(ticketProm);
+
+    const porMes = {};
+    ventas.forEach((v) => {
+      const f = String(val(v, "fecha") || "").slice(0, 7) || "Sin fecha";
+      porMes[f] = (porMes[f] || 0) + Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
+    });
+    const prodTop = {};
+    ventas.forEach((v) => {
+      const p = canonProducto(val(v, "producto"));
+      prodTop[p] = (prodTop[p] || 0) + Number(val(v, "cantidad") || 0);
+    });
+    const topEntries = Object.entries(prodTop).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+    if (charts.ventasMes) charts.ventasMes.destroy();
+    if (charts.productosTop) charts.productosTop.destroy();
+    if (charts.carteraEstado) charts.carteraEstado.destroy();
+    if (window.Chart && q("#chartVentasMes")) {
+      charts.ventasMes = new window.Chart(q("#chartVentasMes"), {
+        type: "line",
+        data: {
+          labels: Object.keys(porMes),
+          datasets: [{ label: "Ingresos", data: Object.values(porMes), borderColor: "#1d4ed8", backgroundColor: "rgba(29,78,216,0.15)", fill: true, tension: 0.25 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+    const ventasPagadas = ventas.filter((v) => {
+      const total = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
+      return Number(val(v, "abono") || 0) >= total;
+    }).length;
+    const ventasPend = Math.max(ventas.length - ventasPagadas, 0);
+    if (window.Chart && q("#chartCarteraEstado")) {
+      charts.carteraEstado = new window.Chart(q("#chartCarteraEstado"), {
+        type: "doughnut",
+        data: { labels: ["Pagadas", "Pendientes"], datasets: [{ data: [ventasPagadas, ventasPend], backgroundColor: ["#15803d", "#d97706"] }] },
+        options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+      });
+    }
+    if (window.Chart && q("#chartProductosTop")) {
+      charts.productosTop = new window.Chart(q("#chartProductosTop"), {
+        type: "bar",
+        data: {
+          labels: topEntries.map((x) => x[0]),
+          datasets: [{ data: topEntries.map((x) => x[1]), backgroundColor: "#0369a1" }]
+        },
+        options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+    const carteraRows = ventas.map((v) => {
+      const total = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
+      const saldo = total - Number(val(v, "abono") || 0);
+      return { cliente: val(v, "cliente") || "-", producto: val(v, "producto") || "-", saldo, fecha: val(v, "fecha") || "-" };
+    }).filter((x) => x.saldo > 0).sort((a, b) => b.saldo - a.saldo).slice(0, 8);
+    const tb = q("#dashTopClientes");
+    if (tb) tb.innerHTML = carteraRows.length
+      ? carteraRows.map((r) => `<tr><td>${r.cliente}</td><td>${r.producto}</td><td>${money(r.saldo)}</td><td>${r.fecha}</td></tr>`).join("")
+      : '<tr><td colspan="4" class="text-center text-muted">Sin deudas registradas</td></tr>';
+    const hist = JSON.parse(localStorage.getItem("historial_cambios") || "[]").slice(0, 8);
+    const ul = q("#dashHistorial");
+    if (ul) ul.innerHTML = hist.length
+      ? hist.map((h) => `<li class="list-group-item px-0"><div class="small text-muted">${String(h.at || "").slice(0, 16).replace("T", " ")}</div><div><span class="badge bg-light text-dark me-2">${h.module || "-"}</span>${h.action || "-"}</div></li>`).join("")
+      : '<li class="list-group-item px-0 text-muted">Sin actividad reciente</li>';
   }
 
   function showDay() {
@@ -527,9 +791,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (closeBtn) closeBtn.onclick = () => { sidebar.classList.remove("show"); overlay.classList.remove("show"); };
   if (overlay) overlay.onclick = () => { sidebar.classList.remove("show"); overlay.classList.remove("show"); };
 
-  const views = { ventas: "Registro de Ventas", instalacion: "Reporte de Instalacion", mercancia: "Reporte de Mercancia", gastos: "Reporte de Gastos", cartera: "Cartera de Clientes" };
+  const views = { dashboard: "Dashboard Empresarial", ventas: "Registro de Ventas", instalacion: "Reporte de Instalacion", mercancia: "Reporte de Mercancia", gastos: "Reporte de Gastos", cartera: "Cartera de Clientes" };
   const links = document.querySelectorAll(".nav-link"), title = q("#viewTitle");
-  async function init(v) { showAll(); if (v === "ventas") await modVentas(); else if (v === "instalacion") await modInst(); else if (v === "gastos") await modGastos(); else if (v === "mercancia") await modMercancia(); else if (v === "cartera") await modCartera(); }
+  async function init(v) { showAll(); if (v === "dashboard") await modDashboard(); else if (v === "ventas") await modVentas(); else if (v === "instalacion") await modInst(); else if (v === "gastos") await modGastos(); else if (v === "mercancia") await modMercancia(); else if (v === "cartera") await modCartera(); }
   function change(v) {
     const c = q("#viewContainer"); if (!c || !views[v]) return;
     c.innerHTML = '<div class="text-center p-5"><div class="spinner-border"></div></div>'; vistActual = v;
@@ -540,5 +804,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     }).catch((err) => { console.error(err); c.innerHTML = '<div class="alert alert-danger">Error al cargar la vista</div>'; });
   }
   links.forEach((l) => l.addEventListener("click", (e) => { e.preventDefault(); change(l.getAttribute("data-view")); }));
-  change("ventas");
+  change("dashboard");
 });
