@@ -87,6 +87,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Titulo por defecto
     return s.split(" ").map((w) => w ? `${w[0].toUpperCase()}${w.slice(1)}` : "").join(" ");
   };
+  const numeroInstalador = "3106128451";
+  const abrirWhatsApp = (numero, mensaje) => {
+    const numLimpio = String(numero || "").replace(/\D/g, "");
+    const enlace = `https://wa.me/+57${numLimpio}?text=${encodeURIComponent(mensaje)}`;
+    window.open(enlace, "_blank");
+  };
+  const mensajeCliente = (cliente, fecha, ubicacion, producto) => {
+    return `Hola ${cliente}
+
+Le confirmamos que su instalación ha sido programada exitosamente con **Alcop**.
+
+Fecha: ${fecha}  
+Direccion: ${ubicacion}  
+Producto/Servicio: ${producto}
+
+Nuestro equipo se comunicará con usted el día anterior a la instalación para confirmar la hora exacta y resolver cualquier duda.
+
+Gracias por confiar en **Alcop**. Estamos comprometidos con ofrecerle un servicio profesional y de calidad.`;
+  };
+  const mensajeInstalador = (cliente, telefono, ubicacion, producto, fecha) => {
+    return `NUEVA INSTALACION PROGRAMADA - **Alcop**
+
+Cliente: ${cliente}  
+Teléfono cliente: ${telefono}  
+
+Dirección: ${ubicacion}  
+Producto/Servicio: ${producto}  
+Fecha instalación: ${fecha}
+
+Por favor, asegúrese de verificar todos los materiales y coordinar la logística necesaria antes de la instalación.
+
+Gracias por su compromiso y profesionalismo.`;
+  };
   const alertx = (m, type = "info") => {
     if (window.Swal) {
       window.Swal.fire({
@@ -609,26 +642,106 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     };
     aplicarPrefillDesdeVenta();
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      try {
-        await ins("instalacion", {
-          instalador: q("#instalador").value || "Sin asignar", cliente: q("#cliente").value, telefono: q("#telefono").value, producto: q("#producto").value,
-          cantidad: Number(q("#cantidad").value || 0), ubicacion: q("#ubicacion").value, fecha_entrega: q("#fechaEntrega").value,
-          estado: estadoMap[q("#estado").value] || "Pendiente", observaciones: q("#observaciones").value
-        });
-        localStorage.removeItem(prefKey);
-        form.reset();
-        applyRequiredMode(false);
-        if (notice) notice.classList.add("d-none");
-        renderInst();
-        if (window.Swal) {
-          window.Swal.fire({ icon: "success", title: "Instalación registrada correctamente", timer: 1700, showConfirmButton: false });
-        } else {
-          alertx("Instalación registrada correctamente", "success");
-        }
-      } catch (err) { alertx(err.message || "No se pudo guardar instalacion", "error"); }
-    };
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const avisoCliente = !!q("#avisoCliente")?.checked;
+          const avisoInstalador = !!q("#avisoInstalador")?.checked;
+          const payload = {
+            instalador: q("#instalador").value || "Sin asignar",
+            cliente: q("#cliente").value,
+            telefono: q("#telefono").value,
+            producto: q("#producto").value,
+          cantidad: Number(q("#cantidad").value || 0),
+          ubicacion: q("#ubicacion").value,
+          fecha_entrega: q("#fechaEntrega").value,
+            estado: estadoMap[q("#estado").value] || "Pendiente",
+            observaciones: q("#observaciones").value
+          };
+          const guardar = async () => {
+            await ins("instalacion", payload);
+            localStorage.removeItem(prefKey);
+            form.reset();
+            applyRequiredMode(false);
+            if (notice) notice.classList.add("d-none");
+            renderInst();
+            if (window.Swal) {
+              window.Swal.fire({ icon: "success", title: "Instalación registrada correctamente", timer: 1700, showConfirmButton: false });
+            } else {
+              alertx("Instalación registrada correctamente", "success");
+            }
+          };
+
+          const msgCliente = mensajeCliente(payload.cliente, payload.fecha_entrega, payload.ubicacion, payload.producto);
+          const msgInst = mensajeInstalador(payload.cliente, payload.telefono, payload.ubicacion, payload.producto, payload.fecha_entrega);
+
+          if (!avisoCliente && !avisoInstalador) {
+            await guardar();
+            return;
+          }
+
+          if (window.Swal) {
+            let enviadoCliente = !avisoCliente;
+            let enviadoInst = !avisoInstalador;
+            const html = `
+              <div class="text-start">
+                <p class="mb-2">Primero envía los WhatsApp y luego guarda la instalación.</p>
+                <div class="d-grid gap-2">
+                  ${avisoCliente ? '<button type="button" class="btn btn-outline-success" id="btnWaCliente">Abrir WhatsApp cliente</button>' : ""}
+                  ${avisoInstalador ? '<button type="button" class="btn btn-outline-primary" id="btnWaInst">Abrir WhatsApp instalador</button>' : ""}
+                </div>
+              </div>
+            `;
+            await window.Swal.fire({
+              title: "Enviar WhatsApp",
+              html,
+              showCancelButton: true,
+              confirmButtonText: "Guardar instalación",
+              cancelButtonText: "Cancelar",
+              didOpen: () => {
+                const b1 = document.getElementById("btnWaCliente");
+                if (b1) b1.addEventListener("click", () => {
+                  abrirWhatsApp(payload.telefono, msgCliente);
+                  enviadoCliente = true;
+                  b1.disabled = true;
+                });
+                const b2 = document.getElementById("btnWaInst");
+                if (b2) b2.addEventListener("click", () => {
+                  abrirWhatsApp(numeroInstalador, msgInst);
+                  enviadoInst = true;
+                  b2.disabled = true;
+                });
+                const confirmBtn = window.Swal.getConfirmButton();
+                if (confirmBtn) confirmBtn.disabled = !(enviadoCliente && enviadoInst);
+                const check = setInterval(() => {
+                  const ok = enviadoCliente && enviadoInst;
+                  if (confirmBtn) confirmBtn.disabled = !ok;
+                  if (ok) clearInterval(check);
+                }, 200);
+              },
+              preConfirm: () => {
+                if (!enviadoCliente || !enviadoInst) {
+                  window.Swal.showValidationMessage("Debes abrir ambos WhatsApp antes de guardar.");
+                  return false;
+                }
+                return true;
+              }
+            }).then(async (res) => {
+              if (res.isConfirmed) await guardar();
+            });
+          } else {
+            if (avisoCliente) {
+              const ok = window.confirm("Abrir WhatsApp del cliente ahora?");
+              if (ok) abrirWhatsApp(payload.telefono, msgCliente);
+            }
+            if (avisoInstalador) {
+              const ok = window.confirm("Abrir WhatsApp del instalador ahora?");
+              if (ok) abrirWhatsApp(numeroInstalador, msgInst);
+            }
+            await guardar();
+          }
+        } catch (err) { alertx(err.message || "No se pudo guardar instalacion", "error"); }
+      };
     if (editForm && !editForm.dataset.bound) {
       editForm.onsubmit = async (e) => {
         e.preventDefault();
@@ -1307,7 +1420,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (overlay) overlay.onclick = () => { sidebar.classList.remove("show"); overlay.classList.remove("show"); };
 
   const views = {
-    dashboard: "Dashboard Empresarial",
+    dashboard: "Panel Principal - Reportes y Estadísticas",
     "ventas-historial": "Historial de Ventas",
     "ventas-form": "Registrar Venta",
     "instalacion-historial": "Programacion de Instalaciones",
