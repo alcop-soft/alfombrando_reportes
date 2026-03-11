@@ -794,8 +794,9 @@ Gracias por su compromiso y profesionalismo.`;
     const body = q("#datatablesSimple tbody"); if (!body) return;
     body.innerHTML = st.instalacion.map((i) => {
       const estado = val(i, "estado") || "Pendiente";
-      const checked = estado !== "Pendiente";
-      return `<tr class="${checked ? "table-success" : ""}"><td><input type="checkbox" class="estado-check" data-id="${i.id}" ${checked ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtInt(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
+      const estadoTxt = String(estado || "").toLowerCase().trim();
+      const completado = estadoTxt === "completado";
+      return `<tr class="${completado ? "table-success" : ""}"><td><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtInt(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
     }).join("");
     if (q("#pedidoEntregar")) q("#pedidoEntregar").textContent = fmtInt(st.instalacion.length);
     const hoy = today();
@@ -808,7 +809,7 @@ Gracias por su compromiso y profesionalismo.`;
     animateCounter(q("#instKpiHoy"), instHoy);
     animateCounter(q("#instKpiPendientes"), instPend);
     ensureTablePagination(q("#datatablesSimple"), "instalacion", 10);
-    document.querySelectorAll(".estado-check").forEach((c) => c.onchange = async function () {
+    document.querySelectorAll(".estado-checkbox").forEach((c) => c.onchange = async function () {
       try { await upd("instalacion", this.dataset.id, { estado: this.checked ? "Completado" : "Pendiente" }); renderInst(); }
       catch (err) { this.checked = !this.checked; alertx(err.message || "No se pudo cambiar estado", "error"); }
     });
@@ -830,21 +831,29 @@ Gracias por su compromiso y profesionalismo.`;
   function renderGastos() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
     body.innerHTML = st.gastos.map((g) => `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${money(val(g, "monto"))}</td><td>${val(g, "fecha_hora", "fechaHora") || "-"}</td><td>${val(g, "descripcion") || "-"}</td></tr>`).join("");
-    let tg = 0, tc = 0, ti = 0; st.gastos.forEach((g) => { const m = Number(val(g, "monto") || 0); if (String(val(g, "tipo")) === "1") tg += m; else if (String(val(g, "tipo")) === "2") tc += m; else if (String(val(g, "tipo")) === "3") ti += m; });
-    const ym = today().slice(0, 7);
-    const gastosMes = st.gastos.reduce((s, g) => {
-      const fecha = String(val(g, "fecha_hora", "fechaHora") || "");
-      return s + (String(val(g, "tipo")) === "1" && fecha.slice(0, 7) === ym ? Number(val(g, "monto") || 0) : 0);
-    }, 0);
-    const categorias = new Set(st.gastos.map((g) => String(val(g, "tipo") || "").trim()).filter(Boolean)).size;
-    if (q("#totalGastos")) q("#totalGastos").textContent = money(tg);
-    if (q("#totalCapitalInicial")) q("#totalCapitalInicial").textContent = money(tc);
-    if (q("#totalAnadir")) q("#totalAnadir").textContent = money(ti);
-    if (q("#balanceTotal")) q("#balanceTotal").textContent = money(tc + ti - tg);
     if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(st.gastos.length);
-    animateCounter(q("#gastosKpiTotal"), tg);
-    animateCounter(q("#gastosKpiMes"), gastosMes);
-    animateCounter(q("#gastosKpiCategorias"), categorias);
+    const hoy = today();
+    const movsHoy = st.gastos.filter((g) => asDay(val(g, "fecha_hora", "fechaHora")) === hoy);
+    const gastosHoy = movsHoy.reduce((s, g) => s + (String(val(g, "tipo")) === "1" ? Number(val(g, "monto") || 0) : 0), 0);
+
+    const days = [];
+    for (let i = 0; i < 7; i += 1) {
+      const d = new Date(`${hoy}T00:00:00`);
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const gastosSemana = st.gastos.reduce((s, g) => {
+      const f = asDay(val(g, "fecha_hora", "fechaHora"));
+      if (!days.includes(f)) return s;
+      if (String(val(g, "tipo")) !== "1") return s;
+      return s + Number(val(g, "monto") || 0);
+    }, 0);
+    const promDia = gastosSemana / 7;
+
+    animateCounter(q("#gastosKpiHoy"), gastosHoy);
+    animateCounter(q("#gastosKpiMovHoy"), movsHoy.length);
+    animateCounter(q("#gastosKpiSemana"), gastosSemana);
+    animateCounter(q("#gastosKpiPromDia"), promDia);
     ensureTablePagination(q("#datatablesSimple"), "gastos", 10);
   }
 

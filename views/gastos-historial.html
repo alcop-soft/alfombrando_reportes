@@ -67,14 +67,49 @@
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-lg-4">
-            <div class="card bg-danger text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Total Gastos</h6><h3 class="mb-0" id="gastosKpiTotal" data-counter-type="money">$0</h3></div><i class="fas fa-money-bill-wave fs-2 opacity-50"></i></div></div>
+        <div class="col-lg-3">
+            <div class="card bg-danger text-white border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Gastos de Hoy</h6>
+                        <h3 class="mb-0" id="gastosKpiHoy" data-counter-type="money">$0</h3>
+                    </div>
+                    <i class="fas fa-calendar-day fs-2 opacity-50"></i>
+                </div>
+            </div>
         </div>
-        <div class="col-lg-4">
-            <div class="card bg-primary text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Gastos del Mes</h6><h3 class="mb-0" id="gastosKpiMes" data-counter-type="money">$0</h3></div><i class="fas fa-calendar fs-2 opacity-50"></i></div></div>
+        <div class="col-lg-3">
+            <div class="card bg-primary text-white border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Movimientos Hoy</h6>
+                        <h3 class="mb-0" id="gastosKpiMovHoy" data-counter-type="number">0</h3>
+                    </div>
+                    <i class="fas fa-exchange-alt fs-2 opacity-50"></i>
+                </div>
+            </div>
         </div>
-        <div class="col-lg-4">
-            <div class="card bg-warning text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Categorias de Gasto</h6><h3 class="mb-0" id="gastosKpiCategorias" data-counter-type="number">0</h3></div><i class="fas fa-tags fs-2 opacity-50"></i></div></div>
+        <div class="col-lg-3">
+            <div class="card bg-warning text-white border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Gastos Ultimos 7 Dias</h6>
+                        <h3 class="mb-0" id="gastosKpiSemana" data-counter-type="money">$0</h3>
+                    </div>
+                    <i class="fas fa-history fs-2 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="card bg-success text-white border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Promedio Diario (7d)</h6>
+                        <h3 class="mb-0" id="gastosKpiPromDia" data-counter-type="money">$0</h3>
+                    </div>
+                    <i class="fas fa-chart-line fs-2 opacity-50"></i>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -99,7 +134,7 @@
     </div>
 
     <!-- Tabla -->
-    <div class="card shadow-sm mb-4 border-0 d-none">
+    <div class="card shadow-sm mb-4 border-0">
         <div class="card-header bg-gradient-primary text-white">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-3">
@@ -147,77 +182,7 @@
         </div>
     </div>
 
-    <!-- Totales de Gastos -->
-    <div class="card shadow-sm mb-4 border-0">
-        <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <div class="card bg-danger text-white border-0 h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="card-title mb-1 fw-semibold">Total Gastos</h6>
-                                    <p class="card-text mb-0 opacity-75">Egresos y salidas</p>
-                                </div>
-                                <div class="text-end">
-                                    <i class="fas fa-minus-circle fs-1 opacity-50"></i>
-                                </div>
-                            </div>
-                            <h3 class="mt-2 mb-0 fw-bold" id="totalGastos">$0</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-info text-white border-0 h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="card-title mb-1 fw-semibold">Capital Inicial</h6>
-                                    <p class="card-text mb-0 opacity-75">Fondos iniciales</p>
-                                </div>
-                                <div class="text-end">
-                                    <i class="fas fa-piggy-bank fs-1 opacity-50"></i>
-                                </div>
-                            </div>
-                            <h3 class="mt-2 mb-0 fw-bold" id="totalCapitalInicial">$0</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-success text-white border-0 h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="card-title mb-1 fw-semibold">Total Ingresos</h6>
-                                    <p class="card-text mb-0 opacity-75">Entradas de dinero</p>
-                                </div>
-                                <div class="text-end">
-                                    <i class="fas fa-plus-circle fs-1 opacity-50"></i>
-                                </div>
-                            </div>
-                            <h3 class="mt-2 mb-0 fw-bold" id="totalAnadir">$0</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-primary text-white border-0 h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="card-title mb-1 fw-semibold">Balance Total</h6>
-                                    <p class="card-text mb-0 opacity-75">Estado financiero</p>
-                                </div>
-                                <div class="text-end">
-                                    <i class="fas fa-calculator fs-1 opacity-50"></i>
-                                </div>
-                            </div>
-                            <h3 class="mt-2 mb-0 fw-bold" id="balanceTotal">$0</h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+
 </div>
 
 
