@@ -83,14 +83,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     s = s.replace(/\bpaple\b/g, "papel");
     s = s.replace(/\bcolgaduraa?\b/g, "colgadura");
     s = s.replace(/\bcolgadrua\b/g, "colgadura");
+    s = s.replace(/\bredonda\b/g, "redondo");
+    s = s.replace(/\bcirculares?\b/g, "circular");
     s = s.replace(/\bde\s+colgadura\b/g, "de colgadura");
     // Limpia separadores y espacios
     s = s.replace(/[_\-\/.,;:]+/g, " ").replace(/\s+/g, " ").trim();
+    const hasAny = (...terms) => terms.some((term) => s.includes(term));
     // Reglas de unificacion por familia
-    if (s.includes("papel") && s.includes("colgadura")) return "Papel de colgadura";
-    if (s.includes("vinilo")) return "Vinilo";
-    if (s.includes("cenefa")) return "Cenefa";
-    if (s.includes("pegante") || s.includes("adhesivo")) return "Pegante";
+    if ((hasAny("tapete", "alfombra")) && hasAny("redondo", "circular", "round")) return "Tapete Redondo";
+    if (hasAny("tapete", "alfombra")) return "Tapete Normal";
+    if (hasAny("papel", "wallpaper") && hasAny("colgadura", "tapiz")) return "Papel de colgadura";
+    if (hasAny("vinilo", "vinilico")) return "Vinilo";
+    if (hasAny("cenefa", "cenefas")) return "Cenefa";
+    if (hasAny("pegante", "adhesivo", "pega")) return "Pegante";
     // Titulo por defecto
     return s.split(" ").map((w) => w ? `${w[0].toUpperCase()}${w.slice(1)}` : "").join(" ");
   };
@@ -1855,7 +1860,8 @@ Gracias por su compromiso y profesionalismo.`;
       if (body) {
         body.innerHTML = ultimas.length
           ? ultimas.map((v) => {
-            const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
+            const productosCanon = [...new Set((v.productos || []).map((p) => canonProducto(p)).filter(Boolean))];
+            const productoTxt = productosCanon.length > 1 ? `${productosCanon[0]} (+${productosCanon.length - 1})` : (productosCanon[0] || "-");
             return `<tr><td>${v.fecha || "-"}</td><td>${v.cliente || "-"}</td><td>${productoTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(v.total)}</td></tr>`;
           }).join("")
           : '<tr><td colspan="5" class="text-center text-muted">Sin ventas en el periodo</td></tr>';
