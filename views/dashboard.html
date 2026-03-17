@@ -83,61 +83,72 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-3">
-        <div class="col-12">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-light fw-semibold">
-                    <i class="fas fa-wave-square me-2 text-primary"></i>Ventas Diarias (Ultimos 30 Dias)
+    <div class="row g-3 mb-4">
+        <div class="col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-chart-card">
+                <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-wave-square me-2 text-primary"></i>Ventas Diarias (Ultimos 30 Dias)</span>
+                    <small class="text-muted" id="dashFiltroActualLabel"></small>
                 </div>
                 <div class="card-body">
-                    <canvas id="chartVentas30Dias" height="115"></canvas>
+                    <canvas id="chartVentas30Dias"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3">
+            <div class="card shadow-sm border-0 h-100 dashboard-chart-card dashboard-pie-card">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="fas fa-chart-pie me-2 text-primary"></i>Dinero Recogido por Producto
+                </div>
+                <div class="card-body">
+                    <canvas id="chartIngresosProducto"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3">
+            <div class="card shadow-sm border-0 h-100 dashboard-chart-card dashboard-pie-card">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="fas fa-boxes me-2 text-primary"></i>Cantidad por Producto
+                </div>
+                <div class="card-body">
+                    <canvas id="chartCantidadProducto"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-3 mb-3">
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 h-100">
+    <div class="row g-3 mb-4">
+        <div class="col-xl-5">
+            <div class="card shadow-sm border-0 h-100 dashboard-chart-card">
                 <div class="card-header bg-light fw-semibold">
                     <i class="fas fa-user-tie me-2 text-primary"></i>Ventas por Vendedor
                 </div>
                 <div class="card-body">
-                    <canvas id="chartVentasVendedor" height="130"></canvas>
+                    <canvas id="chartVentasVendedor"></canvas>
                 </div>
             </div>
         </div>
-        <div class="col-lg-6">
+        <div class="col-xl-7">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-header bg-light fw-semibold">
-                    <i class="fas fa-boxes me-2 text-primary"></i>Productos Mas Vendidos
+                    <i class="fas fa-clock-rotate-left me-2 text-primary"></i>Ultimas Ventas
                 </div>
-                <div class="card-body">
-                    <canvas id="chartProductosTop" height="130"></canvas>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Cliente</th>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashUltimasVentasBody"></tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-            <span><i class="fas fa-clock-rotate-left me-2 text-primary"></i>Ultimas Ventas</span>
-            <small class="text-muted" id="dashFiltroActualLabel"></small>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0 align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Cliente</th>
-                            <th>Producto</th>
-                            <th>Cantidad</th>
-                            <th>Total</th>
-                        </tr>
-                    </thead>
-                    <tbody id="dashUltimasVentasBody"></tbody>
-                </table>
             </div>
         </div>
     </div>

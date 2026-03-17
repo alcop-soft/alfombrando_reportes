@@ -11811,3 +11811,24 @@ body {
     border-left: 0;
     border-right: 0;
 }
+
+.dashboard-enterprise .dashboard-chart-card .card-body {
+    min-height: 320px;
+}
+
+.dashboard-enterprise .dashboard-chart-card canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.dashboard-enterprise .dashboard-pie-card .card-body {
+    min-height: 320px;
+}
+
+.edit-venta-btn,
+.edit-mercancia-btn,
+.edit-inst-btn,
+.edit-gasto-btn,
+.edit-cartera-btn {
+    display: none !important;
+}

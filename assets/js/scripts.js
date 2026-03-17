@@ -22,7 +22,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   let ventasItemsClickBound = false;
   let ventasCreateInstClickBound = false;
   let mercanciaEditClickBound = false;
+  let mercanciaItemsClickBound = false;
   let ventasVistaCache = [];
+  let mercanciaVistaCache = [];
   const charts = {};
 
   const q = (s) => document.querySelector(s);
@@ -92,6 +94,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Titulo por defecto
     return s.split(" ").map((w) => w ? `${w[0].toUpperCase()}${w.slice(1)}` : "").join(" ");
   };
+  const chartPalette = ["#1d4ed8", "#0f766e", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#65a30d", "#ea580c", "#d97706", "#be123c"];
   const numeroInstalador = "3106128451";
   const abrirWhatsApp = (numero, mensaje) => {
     const numLimpio = String(numero || "").replace(/\D/g, "");
@@ -1002,79 +1005,391 @@ Gracias por su compromiso y profesionalismo.`;
 
   async function modMercancia() {
     await load("mercancia");
-    const form = q("#dataForm"), body = q("#datatablesSimple tbody");
-    if (!form || !body) return;
-    const editForm = q("#editMercanciaForm");
-    const modalEl = q("#editarMercanciaModal");
-    const modal = modalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(modalEl) : null;
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      try {
-        await ins("mercancia", {
-          fecha_recepcion: q("#fechaRecepcion").value, transportadora: q("#transportadora").value, remitente: q("#remitente").value,
-          cliente_destino: q("#clienteDestino").value, cantidad_cajas: Number(q("#cantidad").value || 0),
-          precio: Number(q("#precio").value || 0), descripcion: normalizeMercanciaDesc(q("#producto").value, q("#descripcion").value), observaciones: q("#observaciones").value
+    const form = q("#dataForm");
+    const editStateKey = "mercanciaEdicion";
+    if (form) {
+      const btnAgregar = q("#btnAgregarMercancia");
+      const carritoBody = q("#carritoMercanciaBody");
+      const carritoTotalEl = q("#carritoMercanciaTotal");
+      const carritoCantidadEl = q("#carritoMercanciaCantidad");
+      let carritoMercancia = [];
+      let editItemIndex = null;
+      let modoEdicion = false;
+      let pedidoEditOriginal = "";
+      let editRowIds = [];
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const btnAgregarDefault = btnAgregar ? btnAgregar.innerHTML : "";
+
+      const setSubmitMode = (isEdit) => {
+        modoEdicion = !!isEdit;
+        if (!submitBtn) return;
+        submitBtn.innerHTML = isEdit
+          ? '<i class="fas fa-save me-2"></i>Guardar Cambios'
+          : '<i class="fas fa-save me-2"></i>Registrar Mercancia';
+      };
+
+      const setAgregarMode = (isEdit) => {
+        if (!btnAgregar) return;
+        btnAgregar.innerHTML = isEdit
+          ? '<i class="fas fa-pen me-2"></i>Actualizar'
+          : (btnAgregarDefault || '<i class="fas fa-plus me-2"></i>Agregar');
+      };
+
+      const clearItemEdit = () => {
+        editItemIndex = null;
+        setAgregarMode(false);
+      };
+
+      const ensureMercanciaPedidoId = (force = false) => {
+        const input = q("#numeroPedidoMercancia");
+        let value = txt(input?.value);
+        if (force || !value) {
+          value = makePedidoId();
+          if (input) input.value = value;
+        }
+        return value;
+      };
+
+      const clearEditState = (keepPedido = false) => {
+        localStorage.removeItem(editStateKey);
+        pedidoEditOriginal = "";
+        editRowIds = [];
+        setSubmitMode(false);
+        clearItemEdit();
+        if (!keepPedido) ensureMercanciaPedidoId(true);
+      };
+
+      const renderCarritoMercancia = () => {
+        if (!carritoBody) return;
+        if (!carritoMercancia.length) {
+          carritoBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay productos agregados</td></tr>';
+        } else {
+          carritoBody.innerHTML = carritoMercancia.map((item, i) =>
+            `<tr data-i="${i}" class="${i === editItemIndex ? "table-info" : ""}"><td>${item.producto}</td><td>${item.descripcion || "-"}</td><td>${fmtInt(item.cantidad)}</td><td>${money(item.precio)}</td><td>${money(item.subtotal)}</td><td><button type="button" class="btn btn-sm btn-outline-danger quitar-mercancia-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></td></tr>`
+          ).join("");
+        }
+        const total = carritoMercancia.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+        if (carritoTotalEl) carritoTotalEl.textContent = money(total);
+        if (carritoCantidadEl) carritoCantidadEl.textContent = fmtInt(carritoMercancia.length);
+      };
+
+      const limpiarCamposItem = () => {
+        if (q("#productoMercancia")) q("#productoMercancia").value = "";
+        if (q("#descripcionMercancia")) q("#descripcionMercancia").value = "";
+        if (q("#cantidadMercancia")) q("#cantidadMercancia").value = "";
+        if (q("#precioMercancia")) q("#precioMercancia").value = "";
+      };
+
+      const limpiarCarrito = () => {
+        carritoMercancia = [];
+        clearItemEdit();
+        renderCarritoMercancia();
+      };
+
+      const buildPayloadItems = (pedidoId) => {
+        const fechaRecepcion = q("#fechaRecepcion")?.value || today();
+        const transportadora = q("#transportadora")?.value || "";
+        const remitente = q("#remitente")?.value || "";
+        const clienteDestino = q("#clienteDestino")?.value || "";
+        const observaciones = q("#observaciones")?.value || "";
+        return carritoMercancia.map((item) => ({
+          fecha_recepcion: fechaRecepcion,
+          numero_pedido: pedidoId,
+          transportadora,
+          remitente,
+          cliente_destino: clienteDestino,
+          cantidad_cajas: item.cantidad,
+          precio: item.precio,
+          descripcion: normalizeMercanciaDesc(item.producto, item.descripcion),
+          observaciones
+        }));
+      };
+
+      const applyEditState = (payload) => {
+        if (!payload) return;
+        pedidoEditOriginal = txt(payload.pedidoId || payload.numeroPedido);
+        editRowIds = Array.isArray(payload.rowIds) ? payload.rowIds : [];
+        if (q("#fechaRecepcion")) q("#fechaRecepcion").value = payload.fechaRecepcion || today();
+        if (q("#numeroPedidoMercancia")) q("#numeroPedidoMercancia").value = payload.numeroPedido || pedidoEditOriginal || "";
+        if (q("#transportadora")) q("#transportadora").value = payload.transportadora || "";
+        if (q("#remitente")) q("#remitente").value = payload.remitente || "";
+        if (q("#clienteDestino")) q("#clienteDestino").value = payload.clienteDestino || "";
+        if (q("#observaciones")) q("#observaciones").value = payload.observaciones || "";
+        carritoMercancia = (payload.items || []).map((item) => {
+          const cantidad = Number(item.cantidad || 0);
+          const precio = Number(item.precio || 0);
+          return {
+            producto: item.producto || "",
+            descripcion: item.descripcion || "",
+            cantidad,
+            precio,
+            subtotal: cantidad * precio
+          };
         });
-        form.reset(); renderMercancia(); alertx("Mercancia registrada", "success");
-      } catch (err) { alertx(err.message || "No se pudo guardar mercancia", "error"); }
-    };
-    if (editForm && !editForm.dataset.bound) {
-      editForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const id = q("#editMercanciaId")?.value;
-        if (!id) return;
+        setSubmitMode(true);
+        clearItemEdit();
+        limpiarCamposItem();
+        renderCarritoMercancia();
+        alertx("Pedido de mercancia cargado para edicion", "info");
+      };
+
+      const loadEditState = () => {
+        const raw = localStorage.getItem(editStateKey);
+        if (!raw) return;
         try {
-          await upd("mercancia", id, {
-            fecha_recepcion: q("#editFechaRecepcion").value,
-            transportadora: q("#editTransportadora").value,
-            remitente: q("#editRemitente").value,
-            cliente_destino: q("#editClienteDestino").value,
-            cantidad_cajas: Number(q("#editCantidadCajas").value || 0),
-            precio: Number(q("#editValorTransporte").value || 0),
-            descripcion: normalizeMercanciaDesc(q("#editProductoMercancia").value, q("#editDescripcionMercancia").value),
-            observaciones: q("#editObservacionesMercancia").value
-          });
-          renderMercancia();
-          if (modal) modal.hide();
-          alertx("Mercancia actualizada", "success");
-        } catch (err) {
-          alertx(err.message || "No se pudo actualizar mercancia", "error");
+          applyEditState(JSON.parse(raw));
+        } catch (_) {
+          localStorage.removeItem(editStateKey);
         }
       };
-      editForm.dataset.bound = "1";
+
+      if (btnAgregar && !btnAgregar.dataset.bound) {
+        btnAgregar.addEventListener("click", () => {
+          const producto = txt(q("#productoMercancia")?.value);
+          const descripcion = txt(q("#descripcionMercancia")?.value);
+          const cantidad = Number(q("#cantidadMercancia")?.value || 0);
+          const precio = Number(q("#precioMercancia")?.value || 0);
+          if (!producto) return alertx("Ingresa el producto", "warning");
+          if (!cantidad || cantidad <= 0) return alertx("Cantidad invalida", "warning");
+          if (!precio || precio <= 0) return alertx("Valor de transporte invalido", "warning");
+          const payload = { producto, descripcion, cantidad, precio, subtotal: cantidad * precio };
+          if (editItemIndex != null) {
+            carritoMercancia[editItemIndex] = payload;
+            clearItemEdit();
+            alertx("Producto actualizado", "success");
+          } else {
+            if (!carritoMercancia.length) ensureMercanciaPedidoId();
+            carritoMercancia.push(payload);
+            alertx("Producto agregado al carrito", "success");
+          }
+          limpiarCamposItem();
+          renderCarritoMercancia();
+        });
+        btnAgregar.dataset.bound = "1";
+      }
+
+      if (carritoBody && !carritoBody.dataset.bound) {
+        carritoBody.addEventListener("click", (e) => {
+          const btn = e.target.closest(".quitar-mercancia-item-btn");
+          if (btn) {
+            const i = Number(btn.dataset.i);
+            carritoMercancia.splice(i, 1);
+            if (editItemIndex === i) clearItemEdit();
+            renderCarritoMercancia();
+            return;
+          }
+          const row = e.target.closest("tr");
+          if (!row || row.dataset.i == null) return;
+          const i = Number(row.dataset.i);
+          const item = carritoMercancia[i];
+          if (!item) return;
+          if (q("#productoMercancia")) q("#productoMercancia").value = item.producto || "";
+          if (q("#descripcionMercancia")) q("#descripcionMercancia").value = item.descripcion || "";
+          if (q("#cantidadMercancia")) q("#cantidadMercancia").value = Number(item.cantidad || 0);
+          if (q("#precioMercancia")) q("#precioMercancia").value = Number(item.precio || 0);
+          editItemIndex = i;
+          setAgregarMode(true);
+          renderCarritoMercancia();
+        });
+        carritoBody.dataset.bound = "1";
+      }
+
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!carritoMercancia.length) return alertx("Agrega al menos un producto al carrito", "warning");
+        try {
+          const pedidoIdActual = txt(q("#numeroPedidoMercancia")?.value) || ensureMercanciaPedidoId();
+          const payloads = buildPayloadItems(pedidoIdActual);
+          if (!payloads.length) return alertx("No hay productos para guardar", "warning");
+
+          const wasEdit = modoEdicion;
+          if (wasEdit) {
+            if (pedidoEditOriginal) {
+              const { error: delError } = await sb.from(t.mercancia).delete().eq("numero_pedido", pedidoEditOriginal);
+              if (delError) throw delError;
+            } else if (editRowIds.length) {
+              const { error: delError } = await sb.from(t.mercancia).delete().in("id", editRowIds);
+              if (delError) throw delError;
+            }
+          }
+
+          const { error: insError } = await sb.from(t.mercancia).insert(payloads);
+          if (insError) throw insError;
+          logHistory("mercancia", wasEdit ? "editar" : "crear", { pedidoId: pedidoIdActual, items: payloads.length });
+          await load("mercancia");
+
+          form.reset();
+          limpiarCarrito();
+          clearEditState();
+          renderMercancia();
+
+          if (window.Swal) {
+            await window.Swal.fire({
+              icon: "success",
+              title: wasEdit ? "Pedido de mercancia actualizado" : "Mercancia registrada correctamente",
+              timer: 1800,
+              showConfirmButton: false
+            });
+          } else {
+            alertx(wasEdit ? "Pedido de mercancia actualizado" : "Mercancia registrada correctamente", "success");
+          }
+          if (wasEdit) change("mercancia-historial");
+        } catch (err) {
+          alertx(err.message || "No se pudo guardar mercancia", "error");
+        }
+      };
+
+      form.addEventListener("reset", () => setTimeout(() => {
+        limpiarCarrito();
+        clearEditState();
+        limpiarCamposItem();
+      }, 0));
+      const btnCancelar = q(".btn-cancel-form");
+      if (btnCancelar && !btnCancelar.dataset.boundClearMercanciaEdit) {
+        btnCancelar.addEventListener("click", () => clearEditState());
+        btnCancelar.dataset.boundClearMercanciaEdit = "1";
+      }
+
+      setSubmitMode(false);
+      if (q("#fechaRecepcion") && !q("#fechaRecepcion").value) q("#fechaRecepcion").value = today();
+      ensureMercanciaPedidoId();
+      if (vistActual === "mercancia-form") loadEditState();
+      renderCarritoMercancia();
     }
     if (!mercanciaEditClickBound) {
-      document.addEventListener("click", (e) => {
+      document.addEventListener("click", async (e) => {
         const btn = e.target.closest(".edit-mercancia-btn");
         if (!btn) return;
-        const item = st.mercancia.find((x) => String(x.id) === String(btn.dataset.id));
-        if (!item) return;
-        const desc = splitMercanciaDesc(val(item, "descripcion"));
-        if (q("#editMercanciaId")) q("#editMercanciaId").value = item.id;
-        if (q("#editFechaRecepcion")) q("#editFechaRecepcion").value = val(item, "fecha_recepcion", "fechaRecepcion") || "";
-        if (q("#editTransportadora")) q("#editTransportadora").value = val(item, "transportadora") || "";
-        if (q("#editRemitente")) q("#editRemitente").value = val(item, "remitente") || "";
-        if (q("#editClienteDestino")) q("#editClienteDestino").value = val(item, "cliente_destino", "clienteDestino") || "";
-        if (q("#editProductoMercancia")) q("#editProductoMercancia").value = desc.producto === "-" ? "" : desc.producto;
-        if (q("#editCantidadCajas")) q("#editCantidadCajas").value = Number(val(item, "cantidad_cajas", "cantidad") || 0);
-        if (q("#editValorTransporte")) q("#editValorTransporte").value = Number(val(item, "precio") || 0);
-        if (q("#editDescripcionMercancia")) q("#editDescripcionMercancia").value = desc.descripcion === "-" ? "" : desc.descripcion;
-        if (q("#editObservacionesMercancia")) q("#editObservacionesMercancia").value = val(item, "observaciones") || "";
-        const currentModalEl = q("#editarMercanciaModal");
-        const currentModal = currentModalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(currentModalEl) : null;
-        if (currentModal) currentModal.show();
+        const pedidoId = txt(btn.dataset.pedido);
+        const fallbackId = txt(btn.dataset.id);
+        try {
+          let rows = [];
+          if (pedidoId) {
+            const { data, error } = await sb.from(t.mercancia).select("*").eq("numero_pedido", pedidoId).order("created_at", { ascending: true });
+            if (error) throw error;
+            rows = data || [];
+          } else if (fallbackId) {
+            const item = st.mercancia.find((x) => String(x.id) === String(fallbackId));
+            if (item) rows = [item];
+          }
+          if (!rows.length) return alertx("No se encontraron productos del pedido", "warning");
+          const base = rows[0];
+          const payload = {
+            pedidoId: pedidoId || getPedidoId(base),
+            rowIds: rows.map((r) => r.id).filter((x) => x != null),
+            fechaRecepcion: val(base, "fecha_recepcion", "fechaRecepcion") || today(),
+            numeroPedido: pedidoId || getPedidoId(base) || "",
+            transportadora: val(base, "transportadora") || "",
+            remitente: val(base, "remitente") || "",
+            clienteDestino: val(base, "cliente_destino", "clienteDestino") || "",
+            observaciones: val(base, "observaciones") || "",
+            items: rows.map((r) => {
+              const desc = splitMercanciaDesc(val(r, "descripcion"));
+              return {
+                producto: desc.producto === "-" ? "" : desc.producto,
+                descripcion: desc.descripcion === "-" ? "" : desc.descripcion,
+                cantidad: Number(val(r, "cantidad_cajas", "cantidad") || 0),
+                precio: Number(val(r, "precio") || 0)
+              };
+            })
+          };
+          localStorage.setItem(editStateKey, JSON.stringify(payload));
+          change("mercancia-form");
+        } catch (err) {
+          alertx(err.message || "No se pudo cargar el pedido de mercancia", "error");
+        }
       }, { passive: true });
       mercanciaEditClickBound = true;
     }
-    renderMercancia(); buscador("buscadorMercancia", "datatablesSimple"); mountTableTools("mercancia");
+    if (!mercanciaItemsClickBound) {
+      document.addEventListener("click", (e) => {
+        const btn = e.target.closest(".ver-items-mercancia-btn");
+        if (!btn) return;
+        const idx = Number(btn.dataset.idx);
+        const item = mercanciaVistaCache[idx];
+        if (!item) return;
+        const rows = (item.items || []).map((x) =>
+          `<tr><td>${x.producto || "-"}</td><td>${x.descripcion || "-"}</td><td>${fmtInt(x.cantidad)}</td><td>${money(x.precio)}</td><td>${money(x.subtotal)}</td></tr>`
+        ).join("");
+        const html = `<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>Producto</th><th>Descripcion</th><th>Cantidad</th><th>Valor Transporte</th><th>Subtotal</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="text-center text-muted">Sin productos</td></tr>'}</tbody></table></div>`;
+        if (window.Swal) {
+          window.Swal.fire({
+            title: `Detalle del pedido ${item.numeroPedido || "-"}`,
+            html,
+            width: 900,
+            confirmButtonText: "Cerrar"
+          });
+        } else {
+          alertx("No se pudo abrir detalle (SweetAlert no disponible)", "warning");
+        }
+      }, { passive: true });
+      mercanciaItemsClickBound = true;
+    }
+
+    renderMercancia();
+    if (q("#datatablesSimple")) {
+      buscador("buscadorMercancia", "datatablesSimple");
+      mountTableTools("mercancia");
+    }
+  }
+  function buildMercanciaVista(rows = []) {
+    const grupos = new Map();
+    rows.forEach((m, idx) => {
+      const pedidoId = getPedidoId(m);
+      const clienteKey = String(val(m, "cliente_destino", "clienteDestino") || "").trim().toLowerCase();
+      const key = pedidoId ? `pedido:${pedidoId}|cliente:${clienteKey}` : `item:${val(m, "id") || idx}`;
+      const desc = splitMercanciaDesc(val(m, "descripcion"));
+      const cantidad = Number(val(m, "cantidad_cajas", "cantidad") || 0);
+      const precio = Number(val(m, "precio") || 0);
+      const subtotal = cantidad * precio;
+      const producto = desc.producto === "-" ? "" : desc.producto;
+      const descripcion = desc.descripcion === "-" ? "" : desc.descripcion;
+
+      if (!grupos.has(key)) {
+        grupos.set(key, {
+          id: val(m, "id"),
+          fechaRecepcion: val(m, "fecha_recepcion", "fechaRecepcion") || "-",
+          numeroPedido: pedidoId || "-",
+          pedidoId: pedidoId || "",
+          transportadora: val(m, "transportadora") || "-",
+          remitente: val(m, "remitente") || "-",
+          clienteDestino: val(m, "cliente_destino", "clienteDestino") || "-",
+          observaciones: val(m, "observaciones") || "-",
+          productos: [],
+          descripciones: [],
+          cantidad: 0,
+          total: 0,
+          items: []
+        });
+      }
+
+      const g = grupos.get(key);
+      g.cantidad += cantidad;
+      g.total += subtotal;
+      if (producto && !g.productos.includes(producto)) g.productos.push(producto);
+      if (descripcion && !g.descripciones.includes(descripcion)) g.descripciones.push(descripcion);
+      g.items.push({ producto, descripcion, cantidad, precio, subtotal });
+    });
+    return Array.from(grupos.values());
+  }
+  function renderMercanciaRows(rows, withActions = true) {
+    return rows.map((m, idx) => {
+      const productoTxt = m.productos.length > 1 ? `${m.productos[0]} (+${m.productos.length - 1})` : (m.productos[0] || "-");
+      const descTxt = m.descripciones.length > 1 ? `${m.descripciones[0]} (+${m.descripciones.length - 1})` : (m.descripciones[0] || "-");
+      const acciones = withActions
+        ? `<td><div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-info ver-items-mercancia-btn" data-idx="${idx}"><i class="fas fa-list me-1"></i>Ver</button><button type="button" class="btn btn-sm btn-outline-primary edit-mercancia-btn" data-pedido="${m.pedidoId || ""}" data-id="${m.id}"><i class="fas fa-pen me-1"></i>Editar</button></div></td>`
+        : "";
+      return `<tr><td>${m.fechaRecepcion}</td><td>${m.numeroPedido}</td><td>${m.transportadora}</td><td>${m.remitente}</td><td>${m.clienteDestino}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(m.cantidad)}</td><td>${money(m.total)}</td><td>${m.observaciones || "-"}</td>${acciones}</tr>`;
+    }).join("");
   }
   function renderMercancia() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
-    body.innerHTML = st.mercancia.map((m) => {
-      const desc = splitMercanciaDesc(val(m, "descripcion"));
-      return `<tr><td>${val(m, "fecha_recepcion", "fechaRecepcion") || "-"}</td><td>${val(m, "transportadora") || "-"}</td><td>${val(m, "remitente") || "-"}</td><td>${val(m, "cliente_destino", "clienteDestino") || "-"}</td><td>${desc.producto}</td><td>${fmtInt(val(m, "cantidad_cajas", "cantidad"))}</td><td>${money(val(m, "precio"))}</td><td>${desc.descripcion}</td><td>${val(m, "observaciones") || "-"}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-mercancia-btn" data-id="${m.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
-    }).join("");
-    if (q("#mercancia")) q("#mercancia").textContent = fmtInt(st.mercancia.length);
+    const mercanciaVista = buildMercanciaVista(st.mercancia);
+    mercanciaVistaCache = mercanciaVista;
+    body.innerHTML = mercanciaVista.length
+      ? renderMercanciaRows(mercanciaVista, true)
+      : '<tr><td colspan="11" class="text-center text-muted">No hay pedidos de mercancia registrados</td></tr>';
+    if (q("#mercancia")) q("#mercancia").textContent = fmtInt(mercanciaVista.length);
     const valorTotal = st.mercancia.reduce((s, m) => s + (Number(val(m, "precio") || 0) * Number(val(m, "cantidad_cajas", "cantidad") || 0)), 0);
     const proveedores = new Set(st.mercancia.map((m) => String(val(m, "transportadora") || "").trim()).filter(Boolean)).size;
     animateCounter(q("#mercKpiRecibidos"), st.mercancia.length);
@@ -1442,16 +1757,22 @@ Gracias por su compromiso y profesionalismo.`;
       });
       const vendedores = Object.entries(porVendedor).sort((a, b) => b[1] - a[1]).slice(0, 8);
 
-      const prodTop = {};
+      const ingresosProducto = {};
+      const cantidadProducto = {};
       ventasFiltradas.forEach((v) => {
         const p = canonProducto(val(v, "producto"));
-        prodTop[p] = (prodTop[p] || 0) + Number(val(v, "cantidad") || 0);
+        const totalLinea = Number(val(v, "total") || (Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0)));
+        const cantLinea = Number(val(v, "cantidad") || 0);
+        ingresosProducto[p] = (ingresosProducto[p] || 0) + totalLinea;
+        cantidadProducto[p] = (cantidadProducto[p] || 0) + cantLinea;
       });
-      const topProductos = Object.entries(prodTop).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const productosConIngreso = Object.entries(ingresosProducto).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const productosConCantidad = Object.entries(cantidadProducto).sort((a, b) => b[1] - a[1]).slice(0, 8);
 
       if (charts.ventas30Dias) charts.ventas30Dias.destroy();
       if (charts.ventasVendedor) charts.ventasVendedor.destroy();
-      if (charts.productosTop) charts.productosTop.destroy();
+      if (charts.ingresosProducto) charts.ingresosProducto.destroy();
+      if (charts.cantidadProducto) charts.cantidadProducto.destroy();
 
       if (window.Chart && q("#chartVentas30Dias")) {
         charts.ventas30Dias = new window.Chart(q("#chartVentas30Dias"), {
@@ -1467,7 +1788,7 @@ Gracias por su compromiso y profesionalismo.`;
               tension: 0.25
             }]
           },
-          options: { responsive: true, plugins: { legend: { display: false } } }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
       }
       if (window.Chart && q("#chartVentasVendedor")) {
@@ -1477,20 +1798,55 @@ Gracias por su compromiso y profesionalismo.`;
             labels: vendedores.map((x) => x[0]),
             datasets: [{ label: "Ventas", data: vendedores.map((x) => x[1]), backgroundColor: "#0f766e" }]
           },
-          options: { responsive: true, plugins: { legend: { display: false } } }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
       }
-      if (window.Chart && q("#chartProductosTop")) {
-        charts.productosTop = new window.Chart(q("#chartProductosTop"), {
+      if (window.Chart && q("#chartIngresosProducto")) {
+        charts.ingresosProducto = new window.Chart(q("#chartIngresosProducto"), {
           type: "pie",
           data: {
-            labels: topProductos.map((x) => x[0]),
+            labels: productosConIngreso.map((x) => x[0]),
             datasets: [{
-              data: topProductos.map((x) => x[1]),
-              backgroundColor: ["#2563eb", "#0d9488", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#65a30d", "#ea580c"]
+              data: productosConIngreso.map((x) => x[1]),
+              backgroundColor: chartPalette.slice(0, Math.max(productosConIngreso.length, 1))
             }]
           },
-          options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `${ctx.label}: ${money(ctx.raw || 0)}`
+                }
+              }
+            }
+          }
+        });
+      }
+      if (window.Chart && q("#chartCantidadProducto")) {
+        charts.cantidadProducto = new window.Chart(q("#chartCantidadProducto"), {
+          type: "doughnut",
+          data: {
+            labels: productosConCantidad.map((x) => x[0]),
+            datasets: [{
+              data: productosConCantidad.map((x) => x[1]),
+              backgroundColor: chartPalette.slice(0, Math.max(productosConCantidad.length, 1))
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `${ctx.label}: ${fmtInt(ctx.raw || 0)} und`
+                }
+              }
+            }
+          }
         });
       }
 
@@ -1535,10 +1891,8 @@ Gracias por su compromiso y profesionalismo.`;
       if (q("#gastosDiaBody")) q("#gastosDiaBody").innerHTML = rows; if (q("#tablaGastos")) q("#tablaGastos").style.display = "none"; if (q("#gastosDia")) q("#gastosDia").style.display = "";
     }
     if (vistActual.startsWith("mercancia")) {
-      const rows = st.mercancia.filter((x) => asDay(val(x, "fecha_recepcion", "fechaRecepcion")) === h).map((x) => {
-        const desc = splitMercanciaDesc(val(x, "descripcion"));
-        return `<tr><td>${val(x, "fecha_recepcion", "fechaRecepcion") || "-"}</td><td>${val(x, "transportadora") || "-"}</td><td>${val(x, "remitente") || "-"}</td><td>${val(x, "cliente_destino", "clienteDestino") || "-"}</td><td>${desc.producto}</td><td>${fmtInt(val(x, "cantidad_cajas", "cantidad"))}</td><td>${money(val(x, "precio"))}</td><td>${desc.descripcion}</td><td>${val(x, "observaciones") || "-"}</td></tr>`;
-      }).join("") || '<tr><td colspan="9" class="text-center">No hay registros para hoy</td></tr>';
+      const mercanciaHoy = buildMercanciaVista(st.mercancia.filter((x) => asDay(val(x, "fecha_recepcion", "fechaRecepcion")) === h));
+      const rows = renderMercanciaRows(mercanciaHoy, false) || '<tr><td colspan="10" class="text-center">No hay registros para hoy</td></tr>';
       if (q("#mercanciaDiaBody")) q("#mercanciaDiaBody").innerHTML = rows; if (q("#tablamercancia")) q("#tablamercancia").style.display = "none"; if (q("#mercanciaDia")) q("#mercanciaDia").style.display = "";
     }
   }
