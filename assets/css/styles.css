@@ -11830,5 +11830,6 @@ body {
 .edit-inst-btn,
 .edit-gasto-btn,
 .edit-cartera-btn {
-    display: none !important;
+    display: inline-flex !important;
+    align-items: center;
 }
