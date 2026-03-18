@@ -55,7 +55,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "";
   };
   const getPedidoId = (row) => {
-    const raw = val(row, "pedido_id", "pedidoId", "numero_pedido", "numeroPedido");
+    const raw = val(row, "pedido_id", "pedidoId", "num_pedido", "numero_pedido", "numeroPedido");
     return String(raw || "").trim();
   };
   const makePedidoId = () => `PED-${Date.now()}-${Math.floor(Math.random() * 900 + 100)}`;
@@ -153,6 +153,7 @@ Gracias por su compromiso y profesionalismo.`;
     c.appendChild(e);
     setTimeout(() => e.remove(), 3500);
   };
+  const errEs = (base, err) => `${base}${err?.message ? ` Detalle: ${err.message}` : ""}`;
   const logHistory = (module, action, payload = {}) => {
     const key = "historial_cambios";
     const base = JSON.parse(localStorage.getItem(key) || "[]");
@@ -265,12 +266,12 @@ Gracias por su compromiso y profesionalismo.`;
     table.dataset.sortReady = "1";
   };
   const exportTableExcel = (table, fileName) => {
-    if (!window.XLSX || !table) return alertx("No se pudo exportar a Excel", "error");
+    if (!window.XLSX || !table) return alertx("No fue posible exportar la tabla a Excel. Verifica los datos e intenta de nuevo.", "error");
     const wb = window.XLSX.utils.table_to_book(table, { sheet: "Reporte" });
     window.XLSX.writeFile(wb, `${fileName}_${today()}.xlsx`);
   };
   const exportTablePdf = (table, title) => {
-    if (!window.jspdf || !window.jspdf.jsPDF || !table) return alertx("No se pudo exportar a PDF", "error");
+    if (!window.jspdf || !window.jspdf.jsPDF || !table) return alertx("No fue posible exportar la tabla a PDF. Verifica los datos e intenta de nuevo.", "error");
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "landscape" });
     doc.text(title, 14, 12);
@@ -294,7 +295,7 @@ Gracias por su compromiso y profesionalismo.`;
 
   async function load(k) {
     const { data, error } = await sb.from(t[k]).select("*").order("created_at", { ascending: false });
-    if (error) { console.error(error); alertx(`Error cargando ${k}: ${error.message}`, "error"); st[k] = []; return; }
+    if (error) { console.error(error); alertx(`No fue posible cargar los datos de ${k}. Detalle: ${error.message}`, "error"); st[k] = []; return; }
     st[k] = data || [];
   }
   async function ins(k, p) {
@@ -403,18 +404,18 @@ Gracias por su compromiso y profesionalismo.`;
         const descripcion = txt(q("#referencia")?.value);
         const cantidad = Number(q("#cantidad")?.value || 0);
         const precio = Number(q("#precio")?.value || 0);
-        if (!producto) return alertx("Ingresa el producto", "warning");
-        if (!cantidad || cantidad <= 0) return alertx("Cantidad invalida", "warning");
-        if (!precio || precio <= 0) return alertx("Precio invalido", "warning");
+        if (!producto) return alertx("Debes ingresar el nombre del producto antes de agregarlo.", "warning");
+        if (!cantidad || cantidad <= 0) return alertx("La cantidad debe ser mayor a cero.", "warning");
+        if (!precio || precio <= 0) return alertx("El precio debe ser mayor a cero.", "warning");
         const payload = { producto, descripcion, cantidad, precio, subtotal: cantidad * precio };
         if (editItemIndex != null) {
           carritoProductos[editItemIndex] = payload;
           clearItemEdit();
-          alertx("Producto actualizado", "success");
+          alertx("El producto se actualizo correctamente en el carrito.", "success");
         } else {
           if (!carritoProductos.length) ensurePedidoId();
           carritoProductos.push(payload);
-          alertx("Producto agregado al carrito", "success");
+          alertx("El producto se agrego correctamente al carrito.", "success");
         }
         if (q("#producto")) q("#producto").value = "";
         if (q("#referencia")) q("#referencia").value = "";
@@ -508,7 +509,7 @@ Gracias por su compromiso y profesionalismo.`;
       setSubmitMode(true);
       clearItemEdit();
       renderCarrito();
-      alertx("Pedido cargado para edición", "info");
+      alertx("El pedido se cargo para edicion. Ya puedes ajustar sus datos.", "info");
     };
 
     const loadEditState = () => {
@@ -524,11 +525,11 @@ Gracias por su compromiso y profesionalismo.`;
 
     form.onsubmit = async (e) => {
       e.preventDefault();
-      if (!carritoProductos.length) return alertx("Agrega al menos un producto al carrito", "warning");
+      if (!carritoProductos.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
       try {
         const pedidoIdActual = txt(q("#numeroPedido")?.value) || ensurePedidoId();
         const payloads = buildPayloadItems(pedidoIdActual);
-        if (!payloads.length) return alertx("No hay productos para guardar", "warning");
+        if (!payloads.length) return alertx("No hay productos listos para guardar en este pedido.", "warning");
 
         const wasEdit = modoEdicion;
         if (wasEdit) {
@@ -554,16 +555,16 @@ Gracias por su compromiso y profesionalismo.`;
         if (window.Swal) {
           await window.Swal.fire({
             icon: "success",
-            title: wasEdit ? "Pedido actualizado correctamente" : "Venta registrada correctamente",
+            title: wasEdit ? "El pedido de venta fue actualizado correctamente." : "La venta fue registrada correctamente.",
             timer: 1800,
             showConfirmButton: false
           });
         } else {
-          alertx(wasEdit ? "Pedido actualizado correctamente" : "Venta registrada correctamente", "success");
+          alertx(wasEdit ? "El pedido de venta fue actualizado correctamente." : "La venta fue registrada correctamente.", "success");
         }
         if (wasEdit) change("ventas-historial");
       } catch (err) {
-        alertx(err.message || "No se pudo guardar venta", "error");
+        alertx(errEs("No fue posible guardar la venta.", err), "error");
       }
     };
 
@@ -592,7 +593,7 @@ Gracias por su compromiso y profesionalismo.`;
             const item = st.ventas.find((x) => String(x.id) === String(fallbackId));
             if (item) rows = [item];
           }
-          if (!rows.length) return alertx("No se encontraron productos del pedido", "warning");
+          if (!rows.length) return alertx("No se encontraron productos asociados a ese pedido.", "warning");
           const base = rows[0];
           const payload = {
             pedidoId: pedidoId || getPedidoId(base),
@@ -617,7 +618,7 @@ Gracias por su compromiso y profesionalismo.`;
           localStorage.setItem(editStateKey, JSON.stringify(payload));
           change("ventas-form");
         } catch (err) {
-          alertx(err.message || "No se pudo cargar el pedido", "error");
+          alertx(errEs("No fue posible cargar el pedido para edicion.", err), "error");
         }
       }, { passive: true });
       ventasEditClickBound = true;
@@ -641,7 +642,7 @@ Gracias por su compromiso y profesionalismo.`;
             confirmButtonText: "Cerrar"
           });
         } else {
-          alertx("No se pudo abrir detalle (SweetAlert no disponible)", "warning");
+          alertx("No fue posible abrir el detalle porque SweetAlert no esta disponible.", "warning");
         }
       }, { passive: true });
       ventasItemsClickBound = true;
@@ -782,7 +783,9 @@ Gracias por su compromiso y profesionalismo.`;
         if (q("#ubicacion")) q("#ubicacion").value = data.ubicacion || "";
         const obs = q("#observaciones");
         const descLine = data.descripcion ? `Referencia: ${data.descripcion}` : "";
-        const pedidoLine = data.numero_pedido ? `Pedido: ${data.numero_pedido}` : "";
+        const pedidoLine = val(data, "num_pedido", "numero_pedido")
+          ? `Pedido: ${val(data, "num_pedido", "numero_pedido")}`
+          : "";
         const extra = [descLine, pedidoLine].filter(Boolean).join(" | ");
         if (obs && extra) obs.value = extra;
         if (notice) notice.classList.remove("d-none");
@@ -817,9 +820,9 @@ Gracias por su compromiso y profesionalismo.`;
             if (notice) notice.classList.add("d-none");
             renderInst();
             if (window.Swal) {
-              window.Swal.fire({ icon: "success", title: "Instalación registrada correctamente", timer: 1700, showConfirmButton: false });
+              window.Swal.fire({ icon: "success", title: "La instalacion fue registrada correctamente.", timer: 1700, showConfirmButton: false });
             } else {
-              alertx("Instalación registrada correctamente", "success");
+              alertx("La instalacion fue registrada correctamente.", "success");
             }
           };
 
@@ -891,7 +894,7 @@ Gracias por su compromiso y profesionalismo.`;
             }
             await guardar();
           }
-        } catch (err) { alertx(err.message || "No se pudo guardar instalacion", "error"); }
+        } catch (err) { alertx(errEs("No fue posible guardar la instalacion.", err), "error"); }
       };
     if (editForm && !editForm.dataset.bound) {
       editForm.onsubmit = async (e) => {
@@ -910,9 +913,9 @@ Gracias por su compromiso y profesionalismo.`;
           });
           renderInst();
           if (modal) modal.hide();
-          alertx("Instalacion actualizada", "success");
+          alertx("La instalacion fue actualizada correctamente.", "success");
         } catch (err) {
-          alertx(err.message || "No se pudo actualizar instalacion", "error");
+          alertx(errEs("No fue posible actualizar la instalacion.", err), "error");
         }
       };
       editForm.dataset.bound = "1";
@@ -962,7 +965,7 @@ Gracias por su compromiso y profesionalismo.`;
     ensureTablePagination(q("#datatablesSimple"), "instalacion", 10);
     document.querySelectorAll(".estado-checkbox").forEach((c) => c.onchange = async function () {
       try { await upd("instalacion", this.dataset.id, { estado: this.checked ? "Completado" : "Pendiente" }); renderInst(); }
-      catch (err) { this.checked = !this.checked; alertx(err.message || "No se pudo cambiar estado", "error"); }
+      catch (err) { this.checked = !this.checked; alertx(errEs("No fue posible cambiar el estado del pedido.", err), "error"); }
     });
   }
 
@@ -974,8 +977,8 @@ Gracias por su compromiso y profesionalismo.`;
       e.preventDefault();
       try {
         await ins("gastos", { tipo: q("#tipo").value, monto: Number(q("#monto").value || 0), fecha_hora: q("#fechaHora").value, descripcion: q("#descripcion").value });
-        form.reset(); renderGastos(); alertx("Movimiento registrado", "success");
-      } catch (err) { alertx(err.message || "No se pudo guardar movimiento", "error"); }
+        form.reset(); renderGastos(); alertx("El movimiento fue registrado correctamente.", "success");
+      } catch (err) { alertx(errEs("No fue posible guardar el movimiento.", err), "error"); }
     };
     renderGastos(); buscador("buscadorGastos", "datatablesSimple"); mountTableTools("gastos");
   }
@@ -1045,23 +1048,13 @@ Gracias por su compromiso y profesionalismo.`;
         setAgregarMode(false);
       };
 
-      const ensureMercanciaPedidoId = (force = false) => {
-        const input = q("#numeroPedidoMercancia");
-        let value = txt(input?.value);
-        if (force || !value) {
-          value = makePedidoId();
-          if (input) input.value = value;
-        }
-        return value;
-      };
-
       const clearEditState = (keepPedido = false) => {
         localStorage.removeItem(editStateKey);
         pedidoEditOriginal = "";
         editRowIds = [];
         setSubmitMode(false);
         clearItemEdit();
-        if (!keepPedido) ensureMercanciaPedidoId(true);
+        if (!keepPedido && q("#numeroPedidoMercancia")) q("#numeroPedidoMercancia").value = "";
       };
 
       const renderCarritoMercancia = () => {
@@ -1099,7 +1092,7 @@ Gracias por su compromiso y profesionalismo.`;
         const observaciones = q("#observaciones")?.value || "";
         return carritoMercancia.map((item) => ({
           fecha_recepcion: fechaRecepcion,
-          numero_pedido: pedidoId,
+          num_pedido: pedidoId,
           transportadora,
           remitente,
           cliente_destino: clienteDestino,
@@ -1135,7 +1128,7 @@ Gracias por su compromiso y profesionalismo.`;
         clearItemEdit();
         limpiarCamposItem();
         renderCarritoMercancia();
-        alertx("Pedido de mercancia cargado para edicion", "info");
+        alertx("El pedido de mercancia se cargo para edicion. Ya puedes ajustar sus datos.", "info");
       };
 
       const loadEditState = () => {
@@ -1154,18 +1147,17 @@ Gracias por su compromiso y profesionalismo.`;
           const descripcion = txt(q("#descripcionMercancia")?.value);
           const cantidad = Number(q("#cantidadMercancia")?.value || 0);
           const precio = Number(q("#precioMercancia")?.value || 0);
-          if (!producto) return alertx("Ingresa el producto", "warning");
-          if (!cantidad || cantidad <= 0) return alertx("Cantidad invalida", "warning");
-          if (!precio || precio <= 0) return alertx("Valor de transporte invalido", "warning");
+          if (!producto) return alertx("Debes ingresar el nombre del producto antes de agregarlo.", "warning");
+          if (!cantidad || cantidad <= 0) return alertx("La cantidad debe ser mayor a cero.", "warning");
+          if (!precio || precio <= 0) return alertx("El valor de transporte debe ser mayor a cero.", "warning");
           const payload = { producto, descripcion, cantidad, precio, subtotal: cantidad * precio };
           if (editItemIndex != null) {
             carritoMercancia[editItemIndex] = payload;
             clearItemEdit();
-            alertx("Producto actualizado", "success");
+            alertx("El producto se actualizo correctamente en el carrito.", "success");
           } else {
-            if (!carritoMercancia.length) ensureMercanciaPedidoId();
             carritoMercancia.push(payload);
-            alertx("Producto agregado al carrito", "success");
+            alertx("El producto se agrego correctamente al carrito.", "success");
           }
           limpiarCamposItem();
           renderCarritoMercancia();
@@ -1201,16 +1193,17 @@ Gracias por su compromiso y profesionalismo.`;
 
       form.onsubmit = async (e) => {
         e.preventDefault();
-        if (!carritoMercancia.length) return alertx("Agrega al menos un producto al carrito", "warning");
+        if (!carritoMercancia.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
         try {
-          const pedidoIdActual = txt(q("#numeroPedidoMercancia")?.value) || ensureMercanciaPedidoId();
+          const pedidoIdActual = txt(q("#numeroPedidoMercancia")?.value);
+          if (!pedidoIdActual) return alertx("Debes ingresar el numero de pedido para guardar la mercancia.", "warning");
           const payloads = buildPayloadItems(pedidoIdActual);
-          if (!payloads.length) return alertx("No hay productos para guardar", "warning");
+          if (!payloads.length) return alertx("No hay productos listos para guardar en este pedido.", "warning");
 
           const wasEdit = modoEdicion;
           if (wasEdit) {
             if (pedidoEditOriginal) {
-              const { error: delError } = await sb.from(t.mercancia).delete().eq("numero_pedido", pedidoEditOriginal);
+              const { error: delError } = await sb.from(t.mercancia).delete().eq("num_pedido", pedidoEditOriginal);
               if (delError) throw delError;
             } else if (editRowIds.length) {
               const { error: delError } = await sb.from(t.mercancia).delete().in("id", editRowIds);
@@ -1231,16 +1224,16 @@ Gracias por su compromiso y profesionalismo.`;
           if (window.Swal) {
             await window.Swal.fire({
               icon: "success",
-              title: wasEdit ? "Pedido de mercancia actualizado" : "Mercancia registrada correctamente",
+              title: wasEdit ? "El pedido de mercancia fue actualizado correctamente." : "La mercancia fue registrada correctamente.",
               timer: 1800,
               showConfirmButton: false
             });
           } else {
-            alertx(wasEdit ? "Pedido de mercancia actualizado" : "Mercancia registrada correctamente", "success");
+            alertx(wasEdit ? "El pedido de mercancia fue actualizado correctamente." : "La mercancia fue registrada correctamente.", "success");
           }
           if (wasEdit) change("mercancia-historial");
         } catch (err) {
-          alertx(err.message || "No se pudo guardar mercancia", "error");
+          alertx(errEs("No fue posible guardar la mercancia.", err), "error");
         }
       };
 
@@ -1257,7 +1250,7 @@ Gracias por su compromiso y profesionalismo.`;
 
       setSubmitMode(false);
       if (q("#fechaRecepcion") && !q("#fechaRecepcion").value) q("#fechaRecepcion").value = today();
-      ensureMercanciaPedidoId();
+      if (q("#numeroPedidoMercancia")) q("#numeroPedidoMercancia").value = "";
       if (vistActual === "mercancia-form") loadEditState();
       renderCarritoMercancia();
     }
@@ -1270,14 +1263,14 @@ Gracias por su compromiso y profesionalismo.`;
         try {
           let rows = [];
           if (pedidoId) {
-            const { data, error } = await sb.from(t.mercancia).select("*").eq("numero_pedido", pedidoId).order("created_at", { ascending: true });
+            const { data, error } = await sb.from(t.mercancia).select("*").eq("num_pedido", pedidoId).order("created_at", { ascending: true });
             if (error) throw error;
             rows = data || [];
           } else if (fallbackId) {
             const item = st.mercancia.find((x) => String(x.id) === String(fallbackId));
             if (item) rows = [item];
           }
-          if (!rows.length) return alertx("No se encontraron productos del pedido", "warning");
+          if (!rows.length) return alertx("No se encontraron productos asociados a ese pedido.", "warning");
           const base = rows[0];
           const payload = {
             pedidoId: pedidoId || getPedidoId(base),
@@ -1301,7 +1294,7 @@ Gracias por su compromiso y profesionalismo.`;
           localStorage.setItem(editStateKey, JSON.stringify(payload));
           change("mercancia-form");
         } catch (err) {
-          alertx(err.message || "No se pudo cargar el pedido de mercancia", "error");
+          alertx(errEs("No fue posible cargar el pedido de mercancia para edicion.", err), "error");
         }
       }, { passive: true });
       mercanciaEditClickBound = true;
@@ -1325,7 +1318,7 @@ Gracias por su compromiso y profesionalismo.`;
             confirmButtonText: "Cerrar"
           });
         } else {
-          alertx("No se pudo abrir detalle (SweetAlert no disponible)", "warning");
+          alertx("No fue posible abrir el detalle porque SweetAlert no esta disponible.", "warning");
         }
       }, { passive: true });
       mercanciaItemsClickBound = true;
@@ -1503,9 +1496,9 @@ Gracias por su compromiso y profesionalismo.`;
         const carteraInp = document.querySelector(`input.abono-cartera-input[data-i="${i}"]`);
         const abono = Number(inp?.value || 0);
         const numeroCartera = txt(carteraInp?.value);
-        if (!abono || abono <= 0) return alertx("Ingresa un abono valido", "warning");
-        if (abono > cart[i].saldo) return alertx("El abono supera el saldo", "warning");
-        if (!numeroCartera) return alertx("Ingresa numero de cartera para el abono", "warning");
+        if (!abono || abono <= 0) return alertx("Debes ingresar un valor de abono mayor a cero.", "warning");
+        if (abono > cart[i].saldo) return alertx("El valor del abono no puede superar el saldo pendiente.", "warning");
+        if (!numeroCartera) return alertx("Debes ingresar el numero de cartera para registrar el abono.", "warning");
         try {
           const nuevoAbono = cart[i].ab + abono;
           const ids = (cart[i].itemIds || []).filter(Boolean);
@@ -1514,10 +1507,10 @@ Gracias por su compromiso y profesionalismo.`;
           if (error) throw error;
           logHistory("ventas", "abono", { ids, abono, abono_total_pedido: nuevoAbono, numero_cartera: numeroCartera });
           await load("ventas");
-          alertx("Abono registrado", "success");
+          alertx("El abono fue registrado correctamente.", "success");
           await modCartera();
         } catch (err) {
-          alertx(err.message || "No se pudo registrar abono", "error");
+          alertx(errEs("No fue posible registrar el abono.", err), "error");
         }
       });
     };
@@ -1537,7 +1530,7 @@ Gracias por su compromiso y profesionalismo.`;
     if (btnExportar && !btnExportar.dataset.bound) {
       btnExportar.addEventListener("click", () => {
         const cart = applyFilters();
-        if (!cart.length) return alertx("No hay datos para exportar", "warning");
+        if (!cart.length) return alertx("No hay datos para exportar con los filtros actuales.", "warning");
         const rows = [["Cliente", "Telefono", "Producto", "Descripcion", "Fecha", "Numero Pedido Venta", "Numero Cartera", "Total", "Abono", "Saldo"]];
         cart.forEach((c) => {
           const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
@@ -1573,7 +1566,7 @@ Gracias por su compromiso y profesionalismo.`;
     if (btnResumen && !btnResumen.dataset.bound) {
       btnResumen.addEventListener("click", () => {
         const cart = applyFilters();
-        if (!cart.length) return alertx("No hay datos para resumir", "warning");
+        if (!cart.length) return alertx("No hay datos para generar el resumen con los filtros actuales.", "warning");
         const total = cart.reduce((s, c) => s + c.saldo, 0);
         const clientes = new Set(cart.map((c) => val(c, "cliente") || "")).size;
         const promedio = clientes ? total / clientes : 0;
@@ -1624,7 +1617,7 @@ Gracias por su compromiso y profesionalismo.`;
             confirmButtonText: "Cerrar"
           });
         } else {
-          alertx("No se pudo abrir resumen (SweetAlert no disponible)", "warning");
+          alertx("No fue posible abrir el resumen porque SweetAlert no esta disponible.", "warning");
         }
       });
       btnResumen.dataset.bound = "1";
@@ -1699,7 +1692,7 @@ Gracias por su compromiso y profesionalismo.`;
     let instalaciones = [];
     try {
       const [resVentas, resInst] = await Promise.all([
-        sb.from(t.ventas).select("id,fecha,numero_recibo,numero_pedido,producto,cantidad,precio,total,abono,vendedor,cliente").order("fecha", { ascending: false }),
+        sb.from(t.ventas).select("*").order("fecha", { ascending: false }),
         sb.from(t.instalacion).select("id,estado,fecha_entrega")
       ]);
       if (resVentas.error) throw resVentas.error;
@@ -1707,7 +1700,7 @@ Gracias por su compromiso y profesionalismo.`;
       ventas = resVentas.data || [];
       instalaciones = resInst.data || [];
     } catch (err) {
-      alertx(err.message || "No se pudo cargar dashboard", "error");
+      alertx(errEs("No fue posible cargar la informacion del tablero.", err), "error");
       return;
     }
 
@@ -1721,7 +1714,7 @@ Gracias por su compromiso y profesionalismo.`;
     const renderDashboard = () => {
       const range = rangeByFiltro();
       if (range.from && range.to && range.from > range.to) {
-        alertx("El rango personalizado es invalido", "warning");
+        alertx("El rango personalizado no es valido. Verifica la fecha inicial y final.", "warning");
         return;
       }
       if (q("#dashFiltroActualLabel")) q("#dashFiltroActualLabel").textContent = range.label;
