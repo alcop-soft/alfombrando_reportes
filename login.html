@@ -146,7 +146,8 @@
             const usuariosPermitidos = {
                 "admin@hotmail.es": "admin",
                 "admin@hotmail.com": "admin",
-                "alcop@hotmail.com": "empleado"
+                "alcop@hotmail.com": "empleado",
+                "alcop@hotmail.es": "empleado"
             };
 
             const obtenerRol = (email) => usuariosPermitidos[String(email || "").trim().toLowerCase()] || "";
