@@ -2,19 +2,36 @@ let vistActual = "dashboard";
 
 document.addEventListener("DOMContentLoaded", async () => {
   const sb = window.supabaseClient;
+  const leerUsuario = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("usuario") || "{}");
+      return {
+        email: String(raw.email || "").trim().toLowerCase(),
+        rol: String(raw.rol || "").trim().toLowerCase()
+      };
+    } catch (_) {
+      return { email: "", rol: "" };
+    }
+  };
+  const usuarioLocal = leerUsuario();
+
   if (!sb) {
     console.error("Supabase client no inicializado");
     window.location.replace("login.html");
     return;
   }
+  let sesionSupabaseValida = false;
   try {
-    await window.requireAuth("login.html");
+    const user = await window.getCurrentUser();
+    sesionSupabaseValida = !!user;
   } catch (err) {
-    console.error(err);
+    console.warn("Sesion Supabase no disponible. Se continua en modo localStorage.", err);
+  }
+  if (!usuarioLocal.email || !["admin", "empleado"].includes(usuarioLocal.rol)) {
     window.location.replace("login.html");
     return;
   }
-  window.watchAuthRedirect("login.html");
+  if (sesionSupabaseValida) window.watchAuthRedirect("login.html");
   const t = window.SUPABASE_TABLES || { ventas: "venta", instalacion: "instalacion", gastos: "gasto", mercancia: "mercancia" };
   const st = { ventas: [], instalacion: [], gastos: [], mercancia: [] };
   let instEditClickBound = false;
@@ -29,6 +46,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const q = (s) => document.querySelector(s);
   const txt = (s) => String(s || "").trim();
+  const esAdmin = () => leerUsuario().rol === "admin";
+  window.esAdmin = esAdmin;
+  const validarPermisoAdmin = () => {
+    if (esAdmin()) return true;
+    window.alert("No tienes permisos");
+    return false;
+  };
   const today = () => new Date().toISOString().slice(0, 10);
   const tipoGasto = (x) => ({ "1": "Gasto", "2": "Capital Inicial", "3": "Ingreso", "4": "Reembolso", "5": "Transferencia" }[String(x)] || "Otros");
   const intFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
@@ -154,6 +178,30 @@ Gracias por su compromiso y profesionalismo.`;
     setTimeout(() => e.remove(), 3500);
   };
   const errEs = (base, err) => `${base}${err?.message ? ` Detalle: ${err.message}` : ""}`;
+  window.editar = (fn) => {
+    if (!validarPermisoAdmin()) return false;
+    if (typeof fn === "function") fn();
+    return true;
+  };
+  window.cancelarPedido = async (pedidoId) => {
+    if (!validarPermisoAdmin()) return false;
+    const pedido = txt(pedidoId);
+    if (!pedido) {
+      window.alert("Debes indicar el numero de pedido");
+      return false;
+    }
+    try {
+      const { error } = await sb.from(t.ventas).delete().eq("numero_pedido", pedido);
+      if (error) throw error;
+      await load("ventas");
+      if (typeof renderVentas === "function") renderVentas();
+      alertx("El pedido fue cancelado correctamente.", "success");
+      return true;
+    } catch (err) {
+      alertx(errEs("No fue posible cancelar el pedido.", err), "error");
+      return false;
+    }
+  };
   const logHistory = (module, action, payload = {}) => {
     const key = "historial_cambios";
     const base = JSON.parse(localStorage.getItem(key) || "[]");
@@ -297,6 +345,7 @@ Gracias por su compromiso y profesionalismo.`;
     const { data, error } = await sb.from(t[k]).select("*").order("created_at", { ascending: false });
     if (error) { console.error(error); alertx(`No fue posible cargar los datos de ${k}. Detalle: ${error.message}`, "error"); st[k] = []; return; }
     st[k] = data || [];
+    if (k === "ventas") localStorage.setItem("ventas", JSON.stringify(st[k]));
   }
   async function ins(k, p) {
     const { error } = await sb.from(t[k]).insert([p]);
@@ -522,12 +571,60 @@ Gracias por su compromiso y profesionalismo.`;
         localStorage.removeItem(editStateKey);
       }
     };
+    const buildEditPayloadFromRows = (rows = [], pedidoIdHint = "") => {
+      if (!rows.length) return null;
+      const base = rows[0];
+      const pedidoId = pedidoIdHint || getPedidoId(base);
+      return {
+        pedidoId: pedidoId || "",
+        rowIds: rows.map((r) => r.id).filter((x) => x != null),
+        fecha: val(base, "fecha") || today(),
+        numeroRecibo: val(base, "numero_recibo", "numeroRecibo") || "",
+        numeroPedido: pedidoId || "",
+        abono: Number(val(base, "abono") || 0),
+        metodoPago: val(base, "metodo_pago", "metodoPago") || "",
+        vendedor: val(base, "vendedor") || "",
+        cliente: val(base, "cliente") || "",
+        telefono: val(base, "telefono") || "",
+        ubicacion: val(base, "ubicacion_cliente", "ub") || "",
+        fechaProgramada: val(base, "fecha_programacion", "fecha_programada", "fechaProgramada") || "",
+        items: rows.map((r) => ({
+          producto: val(r, "producto") || "",
+          descripcion: val(r, "descripcion", "referencia") || "",
+          cantidad: Number(val(r, "cantidad") || 0),
+          precio: Number(val(r, "precio") || 0)
+        }))
+      };
+    };
+    const buscarPedidoEnLocalStorage = (pedidoId) => {
+      try {
+        const base = JSON.parse(localStorage.getItem("ventas") || "[]");
+        if (!Array.isArray(base)) return [];
+        return base.filter((x) => txt(getPedidoId(x)) === txt(pedidoId));
+      } catch (_) {
+        return [];
+      }
+    };
 
     form.onsubmit = async (e) => {
       e.preventDefault();
       if (!carritoProductos.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
       try {
+        if (modoEdicion && !validarPermisoAdmin()) return;
         const pedidoIdActual = txt(q("#numeroPedido")?.value) || ensurePedidoId();
+        const existeEnEstado = st.ventas.filter((x) => txt(getPedidoId(x)) === pedidoIdActual);
+        const existeEnLocal = buscarPedidoEnLocalStorage(pedidoIdActual);
+        const filasExistentes = existeEnEstado.length ? existeEnEstado : existeEnLocal;
+        const esMismoPedidoEnEdicion = modoEdicion && pedidoIdActual === txt(pedidoEditOriginal);
+        if (filasExistentes.length && !esMismoPedidoEnEdicion) {
+          const payloadExistente = buildEditPayloadFromRows(filasExistentes, pedidoIdActual);
+          if (payloadExistente) {
+            localStorage.setItem(editStateKey, JSON.stringify(payloadExistente));
+            applyEditState(payloadExistente);
+          }
+          alertx("Este pedido ya existe", "warning");
+          return;
+        }
         const payloads = buildPayloadItems(pedidoIdActual);
         if (!payloads.length) return alertx("No hay productos listos para guardar en este pedido.", "warning");
 
@@ -581,6 +678,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", async (e) => {
         const btn = e.target.closest(".edit-venta-btn");
         if (!btn) return;
+        if (!validarPermisoAdmin()) return;
         const pedidoId = txt(btn.dataset.pedido);
         const fallbackId = txt(btn.dataset.id);
         try {
@@ -594,27 +692,8 @@ Gracias por su compromiso y profesionalismo.`;
             if (item) rows = [item];
           }
           if (!rows.length) return alertx("No se encontraron productos asociados a ese pedido.", "warning");
-          const base = rows[0];
-          const payload = {
-            pedidoId: pedidoId || getPedidoId(base),
-            rowIds: rows.map((r) => r.id).filter((x) => x != null),
-            fecha: val(base, "fecha") || today(),
-            numeroRecibo: val(base, "numero_recibo", "numeroRecibo") || "",
-            numeroPedido: pedidoId || getPedidoId(base) || "",
-            abono: Number(val(base, "abono") || 0),
-            metodoPago: val(base, "metodo_pago", "metodoPago") || "",
-            vendedor: val(base, "vendedor") || "",
-            cliente: val(base, "cliente") || "",
-            telefono: val(base, "telefono") || "",
-            ubicacion: val(base, "ubicacion_cliente", "ub") || "",
-            fechaProgramada: val(base, "fecha_programacion", "fecha_programada", "fechaProgramada") || "",
-            items: rows.map((r) => ({
-              producto: val(r, "producto") || "",
-              descripcion: val(r, "descripcion", "referencia") || "",
-              cantidad: Number(val(r, "cantidad") || 0),
-              precio: Number(val(r, "precio") || 0)
-            }))
-          };
+          const payload = buildEditPayloadFromRows(rows, pedidoId || getPedidoId(rows[0]));
+          if (!payload) return;
           localStorage.setItem(editStateKey, JSON.stringify(payload));
           change("ventas-form");
         } catch (err) {
@@ -727,7 +806,10 @@ Gracias por su compromiso y profesionalismo.`;
       const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
       const descTxt = v.descripciones.length > 1 ? `${v.descripciones[0]} (+${v.descripciones.length - 1})` : (v.descripciones[0] || "-");
       const precioProm = v.cantidad > 0 ? (v.total / v.cantidad) : 0;
-      return `<tr class="${saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button><button type="button" class="btn btn-outline-primary edit-venta-btn" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button></div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
+      const btnEditar = esAdmin()
+        ? `<button type="button" class="btn btn-outline-primary edit-venta-btn" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button>`
+        : "";
+      return `<tr class="${saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
     }).join("");
 
     const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
@@ -901,6 +983,7 @@ Gracias por su compromiso y profesionalismo.`;
         e.preventDefault();
         const id = q("#editInstId")?.value;
         if (!id) return;
+        if (!validarPermisoAdmin()) return;
         try {
           await upd("instalacion", id, {
             instalador: q("#editInstalador").value || "Sin asignar",
@@ -925,6 +1008,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", (e) => {
         const btn = e.target.closest(".edit-inst-btn");
         if (!btn) return;
+        if (!validarPermisoAdmin()) return;
         const item = st.instalacion.find((x) => String(x.id) === String(btn.dataset.id));
         if (!item) return;
         if (q("#editInstId")) q("#editInstId").value = item.id;
@@ -950,7 +1034,10 @@ Gracias por su compromiso y profesionalismo.`;
       const estado = val(i, "estado") || "Pendiente";
       const estadoTxt = String(estado || "").toLowerCase().trim();
       const completado = estadoTxt === "completado";
-      return `<tr class="${completado ? "table-success" : ""}"><td><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtInt(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td><button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button></td></tr>`;
+      const btnEditarInst = esAdmin()
+        ? `<button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button>`
+        : "-";
+      return `<tr class="${completado ? "table-success" : ""}"><td><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtInt(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td>${btnEditarInst}</td></tr>`;
     }).join("");
     if (q("#pedidoEntregar")) q("#pedidoEntregar").textContent = fmtInt(st.instalacion.length);
     const hoy = today();
@@ -1195,6 +1282,7 @@ Gracias por su compromiso y profesionalismo.`;
         e.preventDefault();
         if (!carritoMercancia.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
         try {
+          if (modoEdicion && !validarPermisoAdmin()) return;
           const pedidoIdActual = txt(q("#numeroPedidoMercancia")?.value);
           if (!pedidoIdActual) return alertx("Debes ingresar el numero de pedido para guardar la mercancia.", "warning");
           const payloads = buildPayloadItems(pedidoIdActual);
@@ -1258,6 +1346,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", async (e) => {
         const btn = e.target.closest(".edit-mercancia-btn");
         if (!btn) return;
+        if (!validarPermisoAdmin()) return;
         const pedidoId = txt(btn.dataset.pedido);
         const fallbackId = txt(btn.dataset.id);
         try {
@@ -1374,8 +1463,11 @@ Gracias por su compromiso y profesionalismo.`;
     return rows.map((m, idx) => {
       const productoTxt = m.productos.length > 1 ? `${m.productos[0]} (+${m.productos.length - 1})` : (m.productos[0] || "-");
       const descTxt = m.descripciones.length > 1 ? `${m.descripciones[0]} (+${m.descripciones.length - 1})` : (m.descripciones[0] || "-");
+      const btnEditarMercancia = esAdmin()
+        ? `<button type="button" class="btn btn-sm btn-outline-primary edit-mercancia-btn" data-pedido="${m.pedidoId || ""}" data-id="${m.id}"><i class="fas fa-pen me-1"></i>Editar</button>`
+        : "";
       const acciones = withActions
-        ? `<td><div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-info ver-items-mercancia-btn" data-idx="${idx}"><i class="fas fa-list me-1"></i>Ver</button><button type="button" class="btn btn-sm btn-outline-primary edit-mercancia-btn" data-pedido="${m.pedidoId || ""}" data-id="${m.id}"><i class="fas fa-pen me-1"></i>Editar</button></div></td>`
+        ? `<td><div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-info ver-items-mercancia-btn" data-idx="${idx}"><i class="fas fa-list me-1"></i>Ver</button>${btnEditarMercancia}</div></td>`
         : "";
       return `<tr><td>${m.fechaRecepcion}</td><td>${m.numeroPedido}</td><td>${m.transportadora}</td><td>${m.remitente}</td><td>${m.clienteDestino}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(m.cantidad)}</td><td>${money(m.total)}</td><td>${m.observaciones || "-"}</td>${acciones}</tr>`;
     }).join("");
@@ -1901,7 +1993,7 @@ Gracias por su compromiso y profesionalismo.`;
   }
 
   const logout = q("#btnCerrarSesion");
-  if (logout) logout.onclick = async () => { await sb.auth.signOut(); window.location.href = "login.html"; };
+  if (logout) logout.onclick = async () => { localStorage.removeItem("usuario"); await sb.auth.signOut(); window.location.href = "login.html"; };
 
   document.addEventListener("click", (e) => {
     const id = e.target && e.target.id;

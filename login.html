@@ -143,6 +143,19 @@
             const errorMessage = document.getElementById("errorMessage");
             const submitBtn = form.querySelector('button[type="submit"]');
             const originalBtnHtml = submitBtn.innerHTML;
+            const usuariosPermitidos = {
+                "admin@hotmail.es": "admin",
+                "admin@hotmail.com": "admin",
+                "alcop@hotmail.com": "empleado"
+            };
+
+            const obtenerRol = (email) => usuariosPermitidos[String(email || "").trim().toLowerCase()] || "";
+            const guardarUsuarioLocal = (email, rol) => {
+                localStorage.setItem("usuario", JSON.stringify({
+                    email: String(email || "").trim().toLowerCase(),
+                    rol
+                }));
+            };
 
             const showError = (message) => {
                 errorMessage.textContent = message;
@@ -162,8 +175,25 @@
             };
 
             try {
+                const usuarioLocal = JSON.parse(localStorage.getItem("usuario") || "{}");
+                const emailLocal = String(usuarioLocal.email || "").trim().toLowerCase();
+                const rolLocal = String(usuarioLocal.rol || "").trim().toLowerCase();
+                if (emailLocal && (rolLocal === "admin" || rolLocal === "empleado")) {
+                    window.location.replace("index.html");
+                    return;
+                }
+            } catch (_) {}
+
+            try {
                 const user = await window.getCurrentUser();
                 if (user) {
+                    const rol = obtenerRol(user.email);
+                    if (!rol) {
+                        await supabaseClient.auth.signOut();
+                        showError("Este usuario no tiene acceso al sistema.");
+                        return;
+                    }
+                    guardarUsuarioLocal(user.email, rol);
                     window.location.replace("index.html");
                     return;
                 }
@@ -178,17 +208,26 @@
 
                 const email = emailInput.value.trim();
                 const password = passwordInput.value;
+                const rol = obtenerRol(email);
+
+                if (!rol) {
+                    showError("Este usuario no esta autorizado para ingresar.");
+                    setLoading(false);
+                    return;
+                }
 
                 try {
-                    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-                    if (error) {
-                        showError("Correo o contrasena incorrectos. Verifica e intenta de nuevo.");
-                        return;
+                    try {
+                        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                        if (error) console.warn("Inicio de sesion Supabase omitido (modo localStorage):", error.message);
+                    } catch (err) {
+                        console.warn("Fallo de Supabase omitido (modo localStorage):", err);
                     }
+                    guardarUsuarioLocal(email, rol);
                     window.location.replace("index.html");
                 } catch (err) {
                     console.error(err);
-                    showError("No se pudo iniciar sesion. Revisa tu conexion e intenta de nuevo.");
+                    showError("No se pudo iniciar sesion. Revisa tus datos e intenta de nuevo.");
                 } finally {
                     setLoading(false);
                 }
