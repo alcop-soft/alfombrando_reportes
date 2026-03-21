@@ -32,8 +32,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
   if (sesionSupabaseValida) window.watchAuthRedirect("login.html");
-  const t = window.SUPABASE_TABLES || { ventas: "venta", instalacion: "instalacion", gastos: "gasto", mercancia: "mercancia" };
-  const st = { ventas: [], instalacion: [], gastos: [], mercancia: [] };
+  const t = { ventas: "venta", instalacion: "instalacion", gastos: "gasto", mercancia: "mercancia", visitas: "visita", ...(window.SUPABASE_TABLES || {}) };
+  const st = { ventas: [], instalacion: [], gastos: [], mercancia: [], visitas: [] };
   let instEditClickBound = false;
   let ventasEditClickBound = false;
   let ventasItemsClickBound = false;
@@ -376,6 +376,8 @@ Gracias por su compromiso y profesionalismo.`;
     await load("ventas");
     const form = q("#dataForm"), body = q("#datatablesSimple tbody");
     if (!form || !body) return;
+    const visitaPrefillKey = "visitaParaVenta";
+    const visitaNotice = q("#ventaFromVisitaNotice");
     const btnAgregar = q("#btnAgregarProducto");
     const carritoBody = q("#carritoVentasBody");
     const carritoTotalEl = q("#carritoTotalGeneral");
@@ -425,6 +427,36 @@ Gracias por su compromiso y profesionalismo.`;
       editRowIds = [];
       setSubmitMode(false);
       clearItemEdit();
+    };
+    const aplicarPrefillDesdeVisita = () => {
+      if (vistActual !== "ventas-form") return;
+      const raw = localStorage.getItem(visitaPrefillKey);
+      if (!raw) {
+        if (visitaNotice) visitaNotice.classList.add("d-none");
+        return;
+      }
+      if (modoEdicion) return;
+      try {
+        const data = JSON.parse(raw);
+        if (q("#fecha")) q("#fecha").value = today();
+        if (q("#cliente")) q("#cliente").value = data.cliente || "";
+        if (q("#telefono")) q("#telefono").value = data.telefono || "";
+        if (q("#ub")) q("#ub").value = data.ubicacion || "";
+        if (q("#vendedor") && data.vendedor) q("#vendedor").value = data.vendedor;
+        if (q("#fechaProgramada")) q("#fechaProgramada").value = data.fechaVisita || today();
+        if (q("#producto") && !txt(q("#producto").value)) q("#producto").value = data.tipoTrabajo || "";
+        if (q("#referencia")) {
+          const refChunks = [
+            data.codigoVisita ? `Visita: ${data.codigoVisita}` : "",
+            data.observaciones || ""
+          ].filter(Boolean);
+          q("#referencia").value = refChunks.join(" | ");
+        }
+        if (visitaNotice) visitaNotice.classList.remove("d-none");
+      } catch (_) {
+        localStorage.removeItem(visitaPrefillKey);
+        if (visitaNotice) visitaNotice.classList.add("d-none");
+      }
     };
 
     const renderCarrito = () => {
@@ -647,6 +679,8 @@ Gracias por su compromiso y profesionalismo.`;
         form.reset();
         limpiarCarrito();
         clearEditState();
+        localStorage.removeItem(visitaPrefillKey);
+        if (visitaNotice) visitaNotice.classList.add("d-none");
         renderVentas();
 
         if (window.Swal) {
@@ -668,10 +702,16 @@ Gracias por su compromiso y profesionalismo.`;
     form.addEventListener("reset", () => setTimeout(() => {
       limpiarCarrito();
       clearEditState();
+      localStorage.removeItem(visitaPrefillKey);
+      if (visitaNotice) visitaNotice.classList.add("d-none");
     }, 0));
     const btnCancelar = q(".btn-cancel-form");
     if (btnCancelar && !btnCancelar.dataset.boundClearEdit) {
-      btnCancelar.addEventListener("click", () => clearEditState());
+      btnCancelar.addEventListener("click", () => {
+        clearEditState();
+        localStorage.removeItem(visitaPrefillKey);
+        if (visitaNotice) visitaNotice.classList.add("d-none");
+      });
       btnCancelar.dataset.boundClearEdit = "1";
     }
     if (!ventasEditClickBound) {
@@ -748,6 +788,7 @@ Gracias por su compromiso y profesionalismo.`;
     }
     setSubmitMode(false);
     if (vistActual === "ventas-form") loadEditState();
+    if (!modoEdicion) aplicarPrefillDesdeVisita();
     renderCarrito();
     renderVentas(); buscador("buscadorVentas", "datatablesSimple"); mountTableTools("ventas");
   }
@@ -1096,6 +1137,195 @@ Gracias por su compromiso y profesionalismo.`;
     animateCounter(q("#gastosKpiSemana"), gastosSemana);
     animateCounter(q("#gastosKpiPromDia"), promDia);
     ensureTablePagination(q("#datatablesSimple"), "gastos", 10);
+  }
+
+  async function modVisitas() {
+    const form = q("#dataForm");
+    const tabla = q("#datatablesSimple");
+    const body = q("#datatablesSimple tbody");
+    const bodyDia = q("#visitasDiaBody");
+    const normalizarEstado = (estado) => {
+      const raw = String(estado || "").trim().toLowerCase();
+      if (raw === "realizada") return "realizado";
+      if (!["pendiente", "realizado", "cancelado"].includes(raw)) return "pendiente";
+      return raw;
+    };
+    const codigoPorId = (id) => `VIS-${String(Number(id) || 0).padStart(4, "0")}`;
+    const filaHoyVisitas = () => {
+      if (!bodyDia) return;
+      const h = today();
+      const rows = st.visitas.filter((v) => asDay(val(v, "fecha")) === h);
+      bodyDia.innerHTML = rows.length
+        ? rows.map((v) => {
+          const estado = normalizarEstado(val(v, "estado"));
+          const clase = estado === "realizado" ? "table-success" : (estado === "cancelado" ? "table-danger" : "");
+          const codigo = txt(val(v, "codigo_visita", "codigo")) || codigoPorId(val(v, "id"));
+          return `<tr class="${clase}"><td>${codigo}</td><td>${val(v, "fecha") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "telefono") || "-"}</td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "observaciones") || "-"}</td><td>${estado}</td></tr>`;
+        }).join("")
+        : '<tr><td colspan="9" class="text-center">No hay visitas para hoy</td></tr>';
+    };
+
+    async function cargarVisitas() {
+      try {
+        const { data, error } = await sb.from(t.visitas).select("*").order("id", { ascending: false });
+        if (error) throw error;
+        st.visitas = data || [];
+        renderizarVisitas();
+      } catch (err) {
+        st.visitas = [];
+        renderizarVisitas();
+        alertx(errEs("No fue posible cargar las visitas.", err), "error");
+      }
+    }
+
+    function actualizarCards() {
+      const pendientes = st.visitas.filter((v) => normalizarEstado(val(v, "estado")) === "pendiente").length;
+      const realizadas = st.visitas.filter((v) => normalizarEstado(val(v, "estado")) === "realizado").length;
+      const canceladas = st.visitas.filter((v) => normalizarEstado(val(v, "estado")) === "cancelado").length;
+      if (q("#visitasTotal")) q("#visitasTotal").textContent = fmtInt(st.visitas.length);
+      animateCounter(q("#visitasKpiTotal"), st.visitas.length);
+      animateCounter(q("#visitasKpiPendientes"), pendientes);
+      animateCounter(q("#visitasKpiRealizadas"), realizadas);
+      animateCounter(q("#visitasKpiCanceladas"), canceladas);
+    }
+
+    function irACotizacion(id) {
+      const visita = st.visitas.find((v) => String(val(v, "id")) === String(id));
+      if (!visita) return alertx("No fue posible encontrar la visita seleccionada.", "warning");
+      const cliente = txt(val(visita, "cliente"));
+      const telefono = txt(val(visita, "telefono"));
+      const direccion = txt(val(visita, "direccion"));
+      const tipoTrabajo = txt(val(visita, "tipo_trabajo", "tipoTrabajo"));
+      const codigo = txt(val(visita, "codigo_visita", "codigo")) || codigoPorId(val(visita, "id"));
+      const url = new URL("https://generador-cotizaciones-rose.vercel.app/");
+      const pares = [
+        ["cliente", cliente],
+        ["telefono", telefono],
+        ["direccion", direccion],
+        ["tipo_trabajo", tipoTrabajo],
+        ["codigo_visita", codigo],
+        ["tipoTrabajo", tipoTrabajo],
+        ["codigoVisita", codigo],
+        ["tipo", tipoTrabajo],
+        ["codigo", codigo]
+      ];
+      pares.forEach(([k, v]) => url.searchParams.set(k, v));
+      url.hash = new URLSearchParams(pares).toString();
+      window.open(url.toString(), "_blank");
+    }
+
+    function irAVenta(id) {
+      const visita = st.visitas.find((v) => String(val(v, "id")) === String(id));
+      if (!visita) return alertx("No fue posible encontrar la visita seleccionada.", "warning");
+      const payload = {
+        cliente: txt(val(visita, "cliente")),
+        telefono: txt(val(visita, "telefono")),
+        ubicacion: txt(val(visita, "direccion")),
+        tipoTrabajo: txt(val(visita, "tipo_trabajo", "tipoTrabajo")),
+        vendedor: txt(val(visita, "vendedor")),
+        fechaVisita: txt(val(visita, "fecha")) || today(),
+        observaciones: txt(val(visita, "observaciones")),
+        codigoVisita: txt(val(visita, "codigo_visita", "codigo")) || codigoPorId(val(visita, "id"))
+      };
+      localStorage.setItem("visitaParaVenta", JSON.stringify(payload));
+      change("ventas-form");
+    }
+
+    async function cambiarEstado(id, nuevoEstado, selectEl) {
+      const estadoPrevio = normalizarEstado(selectEl?.dataset.estado || "pendiente");
+      const estadoNuevo = normalizarEstado(nuevoEstado);
+      if (estadoNuevo === estadoPrevio) return;
+      const confirmado = window.confirm(`Confirmas cambiar el estado de la visita a "${estadoNuevo}"?`);
+      if (!confirmado) {
+        if (selectEl) selectEl.value = estadoPrevio;
+        return;
+      }
+      try {
+        const { error } = await sb.from(t.visitas).update({ estado: estadoNuevo }).eq("id", id);
+        if (error) throw error;
+        alertx("Estado actualizado correctamente.", "success");
+        await cargarVisitas();
+      } catch (err) {
+        if (selectEl) selectEl.value = estadoPrevio;
+        alertx(errEs("No fue posible actualizar el estado.", err), "error");
+      }
+    }
+
+    function renderizarVisitas() {
+      if (body) {
+        body.innerHTML = st.visitas.map((v) => {
+          const estado = normalizarEstado(val(v, "estado"));
+          const clase = estado === "realizado" ? "table-success" : (estado === "cancelado" ? "table-danger" : "");
+          const codigo = txt(val(v, "codigo_visita", "codigo")) || codigoPorId(val(v, "id"));
+          return `<tr class="${clase}"><td>${codigo}</td><td>${val(v, "fecha") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "telefono") || "-"}</td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "observaciones") || "-"}</td><td><select class="form-select form-select-sm visita-estado-select" data-id="${val(v, "id")}" data-estado="${estado}"><option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>pendiente</option><option value="realizado" ${estado === "realizado" ? "selected" : ""}>realizado</option><option value="cancelado" ${estado === "cancelado" ? "selected" : ""}>cancelado</option></select></td><td><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-sm btn-outline-primary btn-cotizar-visita" data-id="${val(v, "id")}"><i class="fas fa-file-signature me-1"></i>Cotizar</button><button type="button" class="btn btn-sm btn-outline-dark btn-venta-desde-visita" data-id="${val(v, "id")}"><i class="fas fa-cart-plus me-1"></i>Venta</button></div></td></tr>`;
+        }).join("");
+        ensureTablePagination(tabla, "visitas", 10);
+
+        document.querySelectorAll(".visita-estado-select").forEach((selectEl) => {
+          selectEl.onchange = () => cambiarEstado(selectEl.dataset.id, selectEl.value, selectEl);
+        });
+        document.querySelectorAll(".btn-cotizar-visita").forEach((btn) => {
+          btn.onclick = () => irACotizacion(btn.dataset.id);
+        });
+        document.querySelectorAll(".btn-venta-desde-visita").forEach((btn) => {
+          btn.onclick = () => irAVenta(btn.dataset.id);
+        });
+      }
+
+      filaHoyVisitas();
+      actualizarCards();
+    }
+
+    async function insertarVisita(e) {
+      if (e) e.preventDefault();
+      if (!form) return;
+      const cliente = txt(q("#cliente")?.value);
+      if (!cliente) return alertx("El campo cliente es obligatorio.", "warning");
+      const payload = {
+        cliente,
+        telefono: txt(q("#telefono")?.value),
+        direccion: txt(q("#direccion")?.value),
+        tipo_trabajo: txt(q("#tipoTrabajo")?.value),
+        vendedor: txt(q("#vendedor")?.value),
+        fecha: q("#fechaVisita")?.value || today(),
+        observaciones: txt(q("#observacionesVisita")?.value),
+        estado: "pendiente"
+      };
+      try {
+        const { data, error } = await sb.from(t.visitas).insert([payload]).select("id").single();
+        if (error) throw error;
+        const visitaId = val(data, "id");
+        if (visitaId) {
+          const { error: errorCodigo } = await sb.from(t.visitas).update({ codigo_visita: codigoPorId(visitaId) }).eq("id", visitaId);
+          if (errorCodigo) throw errorCodigo;
+        }
+        form.reset();
+        if (q("#fechaVisita")) q("#fechaVisita").value = today();
+        alertx("La visita fue registrada correctamente.", "success");
+        await cargarVisitas();
+        if (vistActual === "visitas-form") change("visitas-historial");
+      } catch (err) {
+        alertx(errEs("No fue posible registrar la visita.", err), "error");
+      }
+    }
+
+    window.insertarVisita = insertarVisita;
+    window.cargarVisitas = cargarVisitas;
+    window.renderizarVisitas = renderizarVisitas;
+    window.cambiarEstado = cambiarEstado;
+    window.actualizarCards = actualizarCards;
+    window.irACotizacion = irACotizacion;
+
+    if (form) {
+      form.onsubmit = insertarVisita;
+      if (q("#fechaVisita") && !q("#fechaVisita").value) q("#fechaVisita").value = today();
+    }
+
+    await cargarVisitas();
+    if (tabla && q("#buscadorVisitas")) {
+      buscador("buscadorVisitas", "datatablesSimple");
+      mountTableTools("visitas");
+    }
   }
 
   async function modMercancia() {
@@ -1878,7 +2108,7 @@ Gracias por su compromiso y profesionalismo.`;
               tension: 0.25
             }]
           },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+          options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2.2, plugins: { legend: { display: false } } }
         });
       }
       if (window.Chart && q("#chartVentasVendedor")) {
@@ -1888,7 +2118,7 @@ Gracias por su compromiso y profesionalismo.`;
             labels: vendedores.map((x) => x[0]),
             datasets: [{ label: "Ventas", data: vendedores.map((x) => x[1]), backgroundColor: "#0f766e" }]
           },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+          options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.8, plugins: { legend: { display: false } } }
         });
       }
       if (window.Chart && q("#chartIngresosProducto")) {
@@ -1903,7 +2133,8 @@ Gracias por su compromiso y profesionalismo.`;
           },
           options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 1,
             plugins: {
               legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
               tooltip: {
@@ -1927,7 +2158,8 @@ Gracias por su compromiso y profesionalismo.`;
           },
           options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 1,
             plugins: {
               legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
               tooltip: {
@@ -1986,10 +2218,20 @@ Gracias por su compromiso y profesionalismo.`;
       const rows = renderMercanciaRows(mercanciaHoy, false) || '<tr><td colspan="10" class="text-center">No hay registros para hoy</td></tr>';
       if (q("#mercanciaDiaBody")) q("#mercanciaDiaBody").innerHTML = rows; if (q("#tablamercancia")) q("#tablamercancia").style.display = "none"; if (q("#mercanciaDia")) q("#mercanciaDia").style.display = "";
     }
+    if (vistActual.startsWith("visitas")) {
+      const rows = st.visitas.filter((x) => asDay(val(x, "fecha")) === h).map((x) => {
+        const estadoRaw = String(val(x, "estado") || "pendiente").toLowerCase();
+        const estado = estadoRaw === "realizada" ? "realizado" : estadoRaw;
+        const clase = estado === "realizado" ? "table-success" : (estado === "cancelado" ? "table-danger" : "");
+        const codigo = txt(val(x, "codigo_visita", "codigo")) || `VIS-${String(Number(val(x, "id")) || 0).padStart(4, "0")}`;
+        return `<tr class="${clase}"><td>${codigo}</td><td>${val(x, "fecha") || "-"}</td><td>${val(x, "cliente") || "-"}</td><td>${val(x, "telefono") || "-"}</td><td>${val(x, "direccion") || "-"}</td><td>${val(x, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(x, "vendedor") || "-"}</td><td>${val(x, "observaciones") || "-"}</td><td>${estado}</td></tr>`;
+      }).join("") || '<tr><td colspan="9" class="text-center">No hay visitas para hoy</td></tr>';
+      if (q("#visitasDiaBody")) q("#visitasDiaBody").innerHTML = rows; if (q("#tablaVisitas")) q("#tablaVisitas").style.display = "none"; if (q("#visitasDia")) q("#visitasDia").style.display = "";
+    }
   }
   function showAll() {
-    ["#tablaVentas", "#tablamercancia", "#tablaInstalacion", "#tablaGastos"].forEach((id) => { const e = q(id); if (e) e.style.display = ""; });
-    ["#ventasDia", "#mercanciaDia", "#instalacionDia", "#gastosDia"].forEach((id) => { const e = q(id); if (e) e.style.display = "none"; });
+    ["#tablaVentas", "#tablamercancia", "#tablaInstalacion", "#tablaGastos", "#tablaVisitas"].forEach((id) => { const e = q(id); if (e) e.style.display = ""; });
+    ["#ventasDia", "#mercanciaDia", "#instalacionDia", "#gastosDia", "#visitasDia"].forEach((id) => { const e = q(id); if (e) e.style.display = "none"; });
   }
 
   const logout = q("#btnCerrarSesion");
@@ -1997,8 +2239,8 @@ Gracias por su compromiso y profesionalismo.`;
 
   document.addEventListener("click", (e) => {
     const id = e.target && e.target.id;
-    if (["btnVentasDia", "btnInstalacionDia", "btnGastosDia", "btnmercanciaDia"].includes(id)) showDay();
-    if (["btnVentas", "btnInstalacion", "btnGastos", "btnmercancia"].includes(id)) showAll();
+    if (["btnVentasDia", "btnInstalacionDia", "btnGastosDia", "btnmercanciaDia", "btnVisitasDia"].includes(id)) showDay();
+    if (["btnVentas", "btnInstalacion", "btnGastos", "btnmercancia", "btnVisitas"].includes(id)) showAll();
     const btnNew = e.target.closest(".btn-new-record");
     if (btnNew) {
       const target = btnNew.getAttribute("data-target-view");
@@ -2022,6 +2264,8 @@ Gracias por su compromiso y profesionalismo.`;
     "ventas-form": "Registrar Venta",
     "instalacion-historial": "Programacion de Instalaciones",
     "instalacion-form": "Registrar Programacion",
+    "visitas-historial": "Historial de Visitas",
+    "visitas-form": "Registrar Visita",
     "mercancia-historial": "Reporte de Mercancia",
     "mercancia-form": "Registrar Mercancia",
     "gastos-historial": "Gastos",
@@ -2029,11 +2273,26 @@ Gracias por su compromiso y profesionalismo.`;
     cartera: "Cartera de Clientes"
   };
   const links = document.querySelectorAll(".nav-link[data-view]"), title = q("#viewTitle");
+  const syncSidebarGroups = (viewKey) => {
+    document.querySelectorAll(".nav-submenu").forEach((submenu) => {
+      const hasActiveChild = !!submenu.querySelector(`.nav-link[data-view="${viewKey}"]`);
+      const trigger = document.querySelector(`.nav-group-toggle[aria-controls="${submenu.id}"]`);
+      if (trigger) trigger.setAttribute("aria-expanded", hasActiveChild ? "true" : "false");
+      if (!window.bootstrap) {
+        submenu.classList.toggle("show", hasActiveChild);
+        return;
+      }
+      const collapse = window.bootstrap.Collapse.getOrCreateInstance(submenu, { toggle: false });
+      if (hasActiveChild) collapse.show();
+      else collapse.hide();
+    });
+  };
   async function init(v) {
     showAll();
     if (v === "dashboard") await modDashboard();
     else if (v.startsWith("ventas")) await modVentas();
     else if (v.startsWith("instalacion")) await modInst();
+    else if (v.startsWith("visitas")) await modVisitas();
     else if (v.startsWith("gastos")) await modGastos();
     else if (v.startsWith("mercancia")) await modMercancia();
     else if (v === "cartera") await modCartera();
@@ -2044,6 +2303,7 @@ Gracias por su compromiso y profesionalismo.`;
     fetch(`views/${v}.html`).then((r) => { if (!r.ok) throw new Error("Vista no encontrada"); return r.text(); }).then(async (html) => {
       c.innerHTML = html; if (title) title.textContent = views[v];
       links.forEach((l) => { l.classList.toggle("active", l.getAttribute("data-view") === v); });
+      syncSidebarGroups(v);
       await init(v); if (sidebar) sidebar.classList.remove("show"); if (overlay) overlay.classList.remove("show");
     }).catch((err) => { console.error(err); c.innerHTML = '<div class="alert alert-danger">Error al cargar la vista</div>'; });
   }

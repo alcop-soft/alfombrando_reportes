@@ -10,7 +10,8 @@ window.SUPABASE_TABLES = {
     ventas: "venta",
     instalacion: "instalacion",
     gastos: "gasto",
-    mercancia: "mercancia"
+    mercancia: "mercancia",
+    visitas: "visita"
 };
 
 window.getCurrentSession = async function getCurrentSession() {

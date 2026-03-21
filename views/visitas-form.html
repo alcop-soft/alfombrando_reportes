@@ -1,0 +1,48 @@
+<div class="view-container">
+    <div class="form-view-shell">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-gradient-primary text-white">
+                <h6 class="mb-0 fw-semibold"><i class="fas fa-plus-circle me-2"></i>Formulario de Registro de Visitas</h6>
+            </div>
+            <div class="card-body">
+                <form id="dataForm" class="row g-3">
+                    <div class="col-md-6">
+                        <label for="cliente" class="form-label fw-semibold"><i class="fas fa-user me-2 text-primary"></i>Cliente</label>
+                        <input type="text" class="form-control form-control-lg" required id="cliente" placeholder="Nombre del cliente">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="telefono" class="form-label fw-semibold"><i class="fas fa-phone me-2 text-primary"></i>Telefono</label>
+                        <input type="text" class="form-control form-control-lg" id="telefono" placeholder="Telefono del cliente">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="direccion" class="form-label fw-semibold"><i class="fas fa-map-marker-alt me-2 text-primary"></i>Direccion</label>
+                        <input type="text" class="form-control form-control-lg" id="direccion" placeholder="Direccion de la visita">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="tipoTrabajo" class="form-label fw-semibold"><i class="fas fa-briefcase me-2 text-primary"></i>Tipo de trabajo</label>
+                        <input type="text" class="form-control form-control-lg" id="tipoTrabajo" placeholder="Ej: Instalacion, medicion, mantenimiento">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="vendedor" class="form-label fw-semibold"><i class="fas fa-user-tie me-2 text-primary"></i>Vendedor</label>
+                        <input type="text" class="form-control form-control-lg" id="vendedor" placeholder="Nombre del vendedor">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="fechaVisita" class="form-label fw-semibold"><i class="fas fa-calendar-alt me-2 text-primary"></i>Fecha</label>
+                        <input type="date" class="form-control form-control-lg" id="fechaVisita">
+                    </div>
+                    <div class="col-12">
+                        <label for="observacionesVisita" class="form-label fw-semibold"><i class="fas fa-sticky-note me-2 text-primary"></i>Observaciones</label>
+                        <textarea class="form-control form-control-lg" id="observacionesVisita" rows="3" placeholder="Comentarios importantes para la visita"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="reset" class="btn btn-outline-secondary btn-lg px-4 me-md-2"><i class="fas fa-eraser me-2"></i>Limpiar</button>
+                            <button type="button" class="btn btn-outline-dark btn-lg px-4 btn-cancel-form" data-target-view="visitas-historial"><i class="fas fa-arrow-left me-2"></i>Cancelar</button>
+                            <button type="submit" class="btn btn-primary btn-lg px-4"><i class="fas fa-save me-2"></i>Guardar Visita</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

@@ -11813,16 +11813,28 @@ body {
 }
 
 .dashboard-enterprise .dashboard-chart-card .card-body {
-    min-height: 320px;
+    min-height: 240px;
 }
 
 .dashboard-enterprise .dashboard-chart-card canvas {
     width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
+    max-height: 260px;
 }
 
 .dashboard-enterprise .dashboard-pie-card .card-body {
-    min-height: 320px;
+    min-height: 240px;
+}
+
+.dashboard-enterprise .row.mb-4:last-child {
+    margin-bottom: 0 !important;
+}
+
+@media (max-width: 991.98px) {
+    .dashboard-enterprise .dashboard-chart-card .card-body,
+    .dashboard-enterprise .dashboard-pie-card .card-body {
+        min-height: 200px;
+    }
 }
 
 .edit-venta-btn,

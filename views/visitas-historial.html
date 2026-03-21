@@ -1,0 +1,125 @@
+<div class="view-container">
+    <div class="row g-3 mb-3">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Total Visitas</h6>
+                        <h3 class="mb-0" id="visitasKpiTotal" data-counter-type="number">0</h3>
+                    </div>
+                    <i class="fas fa-clipboard-list fs-2 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Pendientes</h6>
+                        <h3 class="mb-0" id="visitasKpiPendientes" data-counter-type="number">0</h3>
+                    </div>
+                    <i class="fas fa-hourglass-half fs-2 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Realizadas</h6>
+                        <h3 class="mb-0" id="visitasKpiRealizadas" data-counter-type="number">0</h3>
+                    </div>
+                    <i class="fas fa-check-circle fs-2 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-danger text-white border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Canceladas</h6>
+                        <h3 class="mb-0" id="visitasKpiCanceladas" data-counter-type="number">0</h3>
+                    </div>
+                    <i class="fas fa-times-circle fs-2 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body pt-3 pb-0 px-0">
+        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive gap-2 flex-wrap">
+            <button class="btn btn-primary btn-new-record" type="button" data-target-view="visitas-form">
+                <i class="fas fa-plus me-2"></i>Nueva visita
+            </button>
+            <div class="input-group" style="max-width: 400px;">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text" id="buscadorVisitas" class="form-control border-start-0" placeholder="Buscar en visitas..." aria-label="Buscar">
+            </div>
+            <div class="btn-group" role="group">
+                <button id="btnVisitas" class="btn btn-outline-primary active" type="button">
+                    <i class="fas fa-list me-2"></i>Todas las visitas
+                </button>
+                <button id="btnVisitasDia" class="btn btn-outline-primary" type="button">
+                    <i class="fas fa-calendar-day me-2"></i>Visitas de Hoy
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-gradient-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="fas fa-table me-2"></i>Registro de Visitas
+                    </h6>
+                    <span class="badge bg-white text-primary fs-6 px-3 py-2" id="visitasTotal">0</span>
+                </div>
+                <div class="text-end">
+                    <small class="text-white opacity-75">Total de registros</small>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="tablaVisitas" class="table-responsive">
+                <table id="datatablesSimple" class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Codigo</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Telefono</th>
+                            <th>Direccion</th>
+                            <th>Tipo de trabajo</th>
+                            <th>Vendedor</th>
+                            <th>Observaciones</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="visitasDia" class="table-responsive" style="display:none;">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Codigo</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Telefono</th>
+                            <th>Direccion</th>
+                            <th>Tipo de trabajo</th>
+                            <th>Vendedor</th>
+                            <th>Observaciones</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="visitasDiaBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
