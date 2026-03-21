@@ -1144,11 +1144,26 @@ Gracias por su compromiso y profesionalismo.`;
     const tabla = q("#datatablesSimple");
     const body = q("#datatablesSimple tbody");
     const bodyDia = q("#visitasDiaBody");
+    const modalEl = q("#editarVisitaModal");
+    const editForm = q("#editVisitaForm");
+    const modal = modalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(modalEl) : null;
     const normalizarEstado = (estado) => {
       const raw = String(estado || "").trim().toLowerCase();
       if (raw === "realizada") return "realizado";
       if (!["pendiente", "realizado", "cancelado"].includes(raw)) return "pendiente";
       return raw;
+    };
+    const claseEstadoVisita = (estado) => {
+      const e = normalizarEstado(estado);
+      return e === "realizado" ? "visita-estado-realizado" : (e === "cancelado" ? "visita-estado-cancelado" : "visita-estado-pendiente");
+    };
+    const pintarSelectEstado = (selectEl, estado) => {
+      if (!selectEl) return;
+      const e = normalizarEstado(estado || selectEl.value);
+      selectEl.classList.remove("visita-estado-pendiente", "visita-estado-realizado", "visita-estado-cancelado");
+      selectEl.classList.add(claseEstadoVisita(e));
+      selectEl.dataset.estado = e;
+      selectEl.value = e;
     };
     const codigoPorId = (id) => `VIS-${String(Number(id) || 0).padStart(4, "0")}`;
     const filaHoyVisitas = () => {
@@ -1231,13 +1246,58 @@ Gracias por su compromiso y profesionalismo.`;
       change("ventas-form");
     }
 
+    function abrirEdicionVisita(id) {
+      if (!validarPermisoAdmin()) return;
+      const visita = st.visitas.find((v) => String(val(v, "id")) === String(id));
+      if (!visita) return alertx("No fue posible encontrar la visita para editar.", "warning");
+      if (q("#editVisitaId")) q("#editVisitaId").value = val(visita, "id");
+      if (q("#editVisitaCliente")) q("#editVisitaCliente").value = val(visita, "cliente") || "";
+      if (q("#editVisitaTelefono")) q("#editVisitaTelefono").value = val(visita, "telefono") || "";
+      if (q("#editVisitaDireccion")) q("#editVisitaDireccion").value = val(visita, "direccion") || "";
+      if (q("#editVisitaTipoTrabajo")) q("#editVisitaTipoTrabajo").value = val(visita, "tipo_trabajo", "tipoTrabajo") || "";
+      if (q("#editVisitaVendedor")) q("#editVisitaVendedor").value = val(visita, "vendedor") || "";
+      if (q("#editVisitaFecha")) q("#editVisitaFecha").value = val(visita, "fecha") || "";
+      if (q("#editVisitaObservaciones")) q("#editVisitaObservaciones").value = val(visita, "observaciones") || "";
+      if (q("#editVisitaEstado")) q("#editVisitaEstado").value = normalizarEstado(val(visita, "estado"));
+      if (modal) modal.show();
+    }
+
+    async function guardarEdicionVisita(e) {
+      e.preventDefault();
+      if (!validarPermisoAdmin()) return;
+      const id = q("#editVisitaId")?.value;
+      const cliente = txt(q("#editVisitaCliente")?.value);
+      if (!id) return alertx("No fue posible identificar la visita.", "warning");
+      if (!cliente) return alertx("El cliente es obligatorio.", "warning");
+      const payload = {
+        cliente,
+        telefono: txt(q("#editVisitaTelefono")?.value),
+        direccion: txt(q("#editVisitaDireccion")?.value),
+        tipo_trabajo: txt(q("#editVisitaTipoTrabajo")?.value),
+        vendedor: txt(q("#editVisitaVendedor")?.value),
+        fecha: q("#editVisitaFecha")?.value || today(),
+        observaciones: txt(q("#editVisitaObservaciones")?.value),
+        estado: normalizarEstado(q("#editVisitaEstado")?.value)
+      };
+      try {
+        const { error } = await sb.from(t.visitas).update(payload).eq("id", id);
+        if (error) throw error;
+        if (modal) modal.hide();
+        alertx("La visita fue actualizada correctamente.", "success");
+        await cargarVisitas();
+      } catch (err) {
+        alertx(errEs("No fue posible actualizar la visita.", err), "error");
+      }
+    }
+
     async function cambiarEstado(id, nuevoEstado, selectEl) {
       const estadoPrevio = normalizarEstado(selectEl?.dataset.estado || "pendiente");
       const estadoNuevo = normalizarEstado(nuevoEstado);
       if (estadoNuevo === estadoPrevio) return;
+      pintarSelectEstado(selectEl, estadoNuevo);
       const confirmado = window.confirm(`Confirmas cambiar el estado de la visita a "${estadoNuevo}"?`);
       if (!confirmado) {
-        if (selectEl) selectEl.value = estadoPrevio;
+        pintarSelectEstado(selectEl, estadoPrevio);
         return;
       }
       try {
@@ -1246,7 +1306,7 @@ Gracias por su compromiso y profesionalismo.`;
         alertx("Estado actualizado correctamente.", "success");
         await cargarVisitas();
       } catch (err) {
-        if (selectEl) selectEl.value = estadoPrevio;
+        pintarSelectEstado(selectEl, estadoPrevio);
         alertx(errEs("No fue posible actualizar el estado.", err), "error");
       }
     }
@@ -1257,18 +1317,25 @@ Gracias por su compromiso y profesionalismo.`;
           const estado = normalizarEstado(val(v, "estado"));
           const clase = estado === "realizado" ? "table-success" : (estado === "cancelado" ? "table-danger" : "");
           const codigo = txt(val(v, "codigo_visita", "codigo")) || codigoPorId(val(v, "id"));
-          return `<tr class="${clase}"><td>${codigo}</td><td>${val(v, "fecha") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "telefono") || "-"}</td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "observaciones") || "-"}</td><td><select class="form-select form-select-sm visita-estado-select" data-id="${val(v, "id")}" data-estado="${estado}"><option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>pendiente</option><option value="realizado" ${estado === "realizado" ? "selected" : ""}>realizado</option><option value="cancelado" ${estado === "cancelado" ? "selected" : ""}>cancelado</option></select></td><td><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-sm btn-outline-primary btn-cotizar-visita" data-id="${val(v, "id")}"><i class="fas fa-file-signature me-1"></i>Cotizar</button><button type="button" class="btn btn-sm btn-outline-dark btn-venta-desde-visita" data-id="${val(v, "id")}"><i class="fas fa-cart-plus me-1"></i>Venta</button></div></td></tr>`;
+          const btnEditar = esAdmin()
+            ? `<button type="button" class="btn btn-sm btn-outline-primary edit-visita-btn" data-id="${val(v, "id")}"><i class="fas fa-pen-to-square me-1"></i>Editar</button>`
+            : "";
+          return `<tr class="${clase}"><td>${codigo}</td><td>${val(v, "fecha") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "telefono") || "-"}</td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "observaciones") || "-"}</td><td><select class="form-select form-select-sm visita-estado-select ${claseEstadoVisita(estado)}" data-id="${val(v, "id")}" data-estado="${estado}"><option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>pendiente</option><option value="realizado" ${estado === "realizado" ? "selected" : ""}>realizado</option><option value="cancelado" ${estado === "cancelado" ? "selected" : ""}>cancelado</option></select></td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-secondary btn-cotizar-visita" data-id="${val(v, "id")}"><i class="fas fa-file-signature me-1"></i>Cotizar</button>${btnEditar}</div><button type="button" class="btn btn-outline-dark btn-venta-desde-visita" data-id="${val(v, "id")}"><i class="fas fa-cart-plus me-1"></i>Venta</button></div></td></tr>`;
         }).join("");
         ensureTablePagination(tabla, "visitas", 10);
 
         document.querySelectorAll(".visita-estado-select").forEach((selectEl) => {
           selectEl.onchange = () => cambiarEstado(selectEl.dataset.id, selectEl.value, selectEl);
+          pintarSelectEstado(selectEl, selectEl.value);
         });
         document.querySelectorAll(".btn-cotizar-visita").forEach((btn) => {
           btn.onclick = () => irACotizacion(btn.dataset.id);
         });
         document.querySelectorAll(".btn-venta-desde-visita").forEach((btn) => {
           btn.onclick = () => irAVenta(btn.dataset.id);
+        });
+        document.querySelectorAll(".edit-visita-btn").forEach((btn) => {
+          btn.onclick = () => abrirEdicionVisita(btn.dataset.id);
         });
       }
 
@@ -1315,6 +1382,8 @@ Gracias por su compromiso y profesionalismo.`;
     window.cambiarEstado = cambiarEstado;
     window.actualizarCards = actualizarCards;
     window.irACotizacion = irACotizacion;
+
+    if (editForm) editForm.onsubmit = guardarEdicionVisita;
 
     if (form) {
       form.onsubmit = insertarVisita;

@@ -11837,11 +11837,38 @@ body {
     }
 }
 
+.visita-estado-select {
+    min-width: 132px;
+    font-weight: 600;
+    border-radius: 999px;
+    border-width: 1px;
+    padding: 0.2rem 1.9rem 0.2rem 0.75rem;
+}
+
+.visita-estado-pendiente {
+    background-color: #fff3cd !important;
+    border-color: #ffda6a !important;
+    color: #664d03 !important;
+}
+
+.visita-estado-realizado {
+    background-color: #d1e7dd !important;
+    border-color: #75b798 !important;
+    color: #0f5132 !important;
+}
+
+.visita-estado-cancelado {
+    background-color: #f8d7da !important;
+    border-color: #ea868f !important;
+    color: #842029 !important;
+}
+
 .edit-venta-btn,
 .edit-mercancia-btn,
 .edit-inst-btn,
 .edit-gasto-btn,
-.edit-cartera-btn {
+.edit-cartera-btn,
+.edit-visita-btn {
     display: inline-flex !important;
     align-items: center;
 }

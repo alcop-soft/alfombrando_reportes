@@ -123,3 +123,61 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="editarVisitaModal" tabindex="-1" aria-labelledby="editarVisitaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editarVisitaLabel"><i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Visita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="editVisitaForm">
+                <div class="modal-body text-start">
+                    <input type="hidden" id="editVisitaId">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="editVisitaCliente" class="form-label fw-semibold">Cliente</label>
+                            <input type="text" class="form-control" id="editVisitaCliente" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editVisitaTelefono" class="form-label fw-semibold">Telefono</label>
+                            <input type="text" class="form-control" id="editVisitaTelefono">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editVisitaDireccion" class="form-label fw-semibold">Direccion</label>
+                            <input type="text" class="form-control" id="editVisitaDireccion">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editVisitaTipoTrabajo" class="form-label fw-semibold">Tipo de trabajo</label>
+                            <input type="text" class="form-control" id="editVisitaTipoTrabajo">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editVisitaVendedor" class="form-label fw-semibold">Vendedor</label>
+                            <input type="text" class="form-control" id="editVisitaVendedor">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editVisitaFecha" class="form-label fw-semibold">Fecha</label>
+                            <input type="date" class="form-control" id="editVisitaFecha">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editVisitaEstado" class="form-label fw-semibold">Estado</label>
+                            <select class="form-select" id="editVisitaEstado">
+                                <option value="pendiente">pendiente</option>
+                                <option value="realizado">realizado</option>
+                                <option value="cancelado">cancelado</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="editVisitaObservaciones" class="form-label fw-semibold">Observaciones</label>
+                            <textarea class="form-control" id="editVisitaObservaciones" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
