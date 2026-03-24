@@ -54,6 +54,17 @@
                             <input type="datetime-local" required class="form-control form-control-lg" id="fechaHora">
                         </div>
                         <div class="col-12">
+                            <label for="metodoPago" class="form-label fw-semibold">
+                                <i class="fas fa-credit-card me-2 text-primary"></i>Metodo de Pago
+                            </label>
+                            <select class="form-select form-select-lg" id="metodoPago" required>
+                                <option value="">Seleccione metodo de pago</option>
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Tarjeta">Tarjeta</option>
+                                <option value="Transferencia">Transferencia</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
                             <label for="descripcion" class="form-label fw-semibold">
                                 <i class="fas fa-sticky-note me-2 text-primary"></i>Descripción del Movimiento
                             </label>
@@ -164,6 +175,7 @@
                         <tr>
                             <th class="fw-semibold"><i class="fas fa-tags me-2"></i>Tipo de Movimiento</th>
                             <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Monto</th>
+                            <th class="fw-semibold"><i class="fas fa-credit-card me-2"></i>Metodo de Pago</th>
                             <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha y Hora</th>
                             <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Descripción</th>
                         </tr>
@@ -179,6 +191,7 @@
                         <tr>
                             <th class="fw-semibold"><i class="fas fa-tags me-2"></i>Tipo de Movimiento</th>
                             <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Monto</th>
+                            <th class="fw-semibold"><i class="fas fa-credit-card me-2"></i>Metodo de Pago</th>
                             <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha y Hora</th>
                             <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Descripción</th>
                         </tr>
