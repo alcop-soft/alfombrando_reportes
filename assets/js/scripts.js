@@ -54,7 +54,49 @@ document.addEventListener("DOMContentLoaded", async () => {
     return false;
   };
   const today = () => new Date().toISOString().slice(0, 10);
-  const tipoGasto = (x) => ({ "1": "Gasto", "2": "Capital Inicial", "3": "Ingreso", "4": "Reembolso", "5": "Transferencia" }[String(x)] || "Otros");
+  const nowLocalDateTime = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
+  const GASTO_TIPO_OTRO = "7";
+  const GASTOS_TIPOS = {
+    "1": "Impuestos",
+    "2": "Vehiculos",
+    "3": "Pago Proveedores",
+    "4": "Gastos Personales",
+    "5": "Fletes",
+    "6": "Servicios Publicos",
+    "7": "Otros"
+  };
+  const tipoGasto = (rawTipo) => {
+    const v = txt(rawTipo);
+    if (!v) return "Otros";
+    return GASTOS_TIPOS[v] || v;
+  };
+  const esGastoEgreso = (rawTipo) => {
+    const tipo = txt(rawTipo).toLowerCase();
+    if (!tipo) return false;
+    if (tipo === "2" || tipo.includes("capital")) return false;
+    if (tipo === "3" || tipo.includes("ingreso")) return false;
+    if (tipo === "4" || tipo.includes("reembolso")) return false;
+    if (tipo === "5" || tipo.includes("transferencia")) return false;
+    return true;
+  };
+  const fmtDateTime = (raw) => {
+    const source = txt(raw);
+    if (!source) return "-";
+    const normalized = source.includes("T") ? source : source.replace(" ", "T");
+    const d = new Date(normalized);
+    if (Number.isNaN(d.getTime())) return source;
+    return new Intl.DateTimeFormat("es-CO", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(d);
+  };
   const intFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
   const fmtInt = (n) => intFmt.format(Math.round(Number(n || 0)));
   const money = (n) => `$${fmtInt(n)}`;
@@ -1101,22 +1143,81 @@ Gracias por su compromiso y profesionalismo.`;
     await load("gastos");
     const form = q("#dataForm"), body = q("#datatablesSimple tbody");
     if (!form || !body) return;
+    const tipoSelect = q("#tipo");
+    const tipoOtroWrap = q("#tipoOtroWrap");
+    const tipoOtroInput = q("#tipoOtro");
+    const montoInput = q("#monto");
+    const fechaHoraInput = q("#fechaHora");
+    const descripcionInput = q("#descripcion");
+
+    const toggleTipoOtro = () => {
+      const mostrarOtro = txt(tipoSelect?.value) === GASTO_TIPO_OTRO;
+      if (tipoOtroWrap) tipoOtroWrap.classList.toggle("d-none", !mostrarOtro);
+      if (tipoOtroInput) {
+        tipoOtroInput.disabled = !mostrarOtro;
+        if (!mostrarOtro) tipoOtroInput.value = "";
+      }
+    };
+    const initFechaHora = () => {
+      if (!fechaHoraInput || txt(fechaHoraInput.value)) return;
+      fechaHoraInput.value = nowLocalDateTime();
+    };
+    const resolverTipoMovimiento = () => {
+      const tipoBase = txt(tipoSelect?.value);
+      if (!tipoBase) throw new Error("Selecciona el tipo de movimiento.");
+      if (tipoBase !== GASTO_TIPO_OTRO) return tipoBase;
+      const tipoManual = txt(tipoOtroInput?.value);
+      if (!tipoManual) throw new Error("Escribe el tipo de movimiento en 'Otro'.");
+      return tipoManual;
+    };
+    const buildGastoPayload = () => {
+      const tipo = resolverTipoMovimiento();
+      const monto = Number(montoInput?.value || 0);
+      if (!Number.isFinite(monto) || monto <= 0) throw new Error("Ingresa un monto mayor que cero.");
+      const fechaHora = txt(fechaHoraInput?.value);
+      if (!fechaHora) throw new Error("Selecciona fecha y hora del movimiento.");
+      return {
+        tipo,
+        monto,
+        fecha_hora: fechaHora,
+        descripcion: txt(descripcionInput?.value)
+      };
+    };
+    const resetGastosForm = () => {
+      form.reset();
+      initFechaHora();
+      toggleTipoOtro();
+    };
+
+    if (tipoSelect) tipoSelect.onchange = () => toggleTipoOtro();
+    form.onreset = () => window.setTimeout(() => {
+      initFechaHora();
+      toggleTipoOtro();
+    }, 0);
     form.onsubmit = async (e) => {
       e.preventDefault();
       try {
-        await ins("gastos", { tipo: q("#tipo").value, monto: Number(q("#monto").value || 0), fecha_hora: q("#fechaHora").value, descripcion: q("#descripcion").value });
-        form.reset(); renderGastos(); alertx("El movimiento fue registrado correctamente.", "success");
+        await ins("gastos", buildGastoPayload());
+        resetGastosForm();
+        renderGastos();
+        alertx("El movimiento fue registrado correctamente.", "success");
       } catch (err) { alertx(errEs("No fue posible guardar el movimiento.", err), "error"); }
     };
+
+    initFechaHora();
+    toggleTipoOtro();
     renderGastos(); buscador("buscadorGastos", "datatablesSimple"); mountTableTools("gastos");
   }
   function renderGastos() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
-    body.innerHTML = st.gastos.map((g) => `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${money(val(g, "monto"))}</td><td>${val(g, "fecha_hora", "fechaHora") || "-"}</td><td>${val(g, "descripcion") || "-"}</td></tr>`).join("");
-    if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(st.gastos.length);
+    const rows = st.gastos || [];
+    body.innerHTML = rows.length
+      ? rows.map((g) => `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${money(val(g, "monto"))}</td><td>${fmtDateTime(val(g, "fecha_hora", "fechaHora"))}</td><td>${val(g, "descripcion") || "-"}</td></tr>`).join("")
+      : '<tr><td colspan="4" class="text-center text-muted">No hay movimientos registrados</td></tr>';
+    if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(rows.length);
     const hoy = today();
-    const movsHoy = st.gastos.filter((g) => asDay(val(g, "fecha_hora", "fechaHora")) === hoy);
-    const gastosHoy = movsHoy.reduce((s, g) => s + (String(val(g, "tipo")) === "1" ? Number(val(g, "monto") || 0) : 0), 0);
+    const movsHoy = rows.filter((g) => asDay(val(g, "fecha_hora", "fechaHora")) === hoy);
+    const gastosHoy = movsHoy.reduce((s, g) => s + (esGastoEgreso(val(g, "tipo")) ? Number(val(g, "monto") || 0) : 0), 0);
 
     const days = [];
     for (let i = 0; i < 7; i += 1) {
@@ -1124,10 +1225,10 @@ Gracias por su compromiso y profesionalismo.`;
       d.setDate(d.getDate() - i);
       days.push(d.toISOString().slice(0, 10));
     }
-    const gastosSemana = st.gastos.reduce((s, g) => {
+    const gastosSemana = rows.reduce((s, g) => {
       const f = asDay(val(g, "fecha_hora", "fechaHora"));
       if (!days.includes(f)) return s;
-      if (String(val(g, "tipo")) !== "1") return s;
+      if (!esGastoEgreso(val(g, "tipo"))) return s;
       return s + Number(val(g, "monto") || 0);
     }, 0);
     const promDia = gastosSemana / 7;
@@ -2279,7 +2380,7 @@ Gracias por su compromiso y profesionalismo.`;
       if (q("#instalacionDiaBody")) q("#instalacionDiaBody").innerHTML = rows; if (q("#tablaInstalacion")) q("#tablaInstalacion").style.display = "none"; if (q("#instalacionDia")) q("#instalacionDia").style.display = "";
     }
     if (vistActual.startsWith("gastos")) {
-      const rows = st.gastos.filter((x) => asDay(val(x, "fecha_hora", "fechaHora")) === h).map((x) => `<tr><td>${tipoGasto(val(x, "tipo"))}</td><td>${money(val(x, "monto"))}</td><td>${val(x, "fecha_hora", "fechaHora") || "-"}</td><td>${val(x, "descripcion") || "-"}</td></tr>`).join("") || '<tr><td colspan="4" class="text-center">No hay gastos para hoy</td></tr>';
+      const rows = st.gastos.filter((x) => asDay(val(x, "fecha_hora", "fechaHora")) === h).map((x) => `<tr><td>${tipoGasto(val(x, "tipo"))}</td><td>${money(val(x, "monto"))}</td><td>${fmtDateTime(val(x, "fecha_hora", "fechaHora"))}</td><td>${val(x, "descripcion") || "-"}</td></tr>`).join("") || '<tr><td colspan="4" class="text-center">No hay gastos para hoy</td></tr>';
       if (q("#gastosDiaBody")) q("#gastosDiaBody").innerHTML = rows; if (q("#tablaGastos")) q("#tablaGastos").style.display = "none"; if (q("#gastosDia")) q("#gastosDia").style.display = "";
     }
     if (vistActual.startsWith("mercancia")) {
