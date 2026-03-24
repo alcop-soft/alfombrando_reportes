@@ -67,7 +67,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     "4": "Gastos Personales",
     "5": "Fletes",
     "6": "Servicios Publicos",
-    "7": "Otros"
+    "7": "Otros",
+    "8": "Nomina"
   };
   const tipoGasto = (rawTipo) => {
     const v = txt(rawTipo);
