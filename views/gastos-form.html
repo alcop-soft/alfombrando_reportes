@@ -10,71 +10,61 @@
             </h6>
         </div>
         <div class="card-body">
-            <form id="dataForm" class="row gy-3 gx-4">
-                <div class="col-md-6">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label for="tipo" class="form-label fw-semibold">
-                                <i class="fas fa-tags me-2 text-primary"></i>Tipo de Movimiento
-                            </label>
-                            <select class="form-select form-select-lg" id="tipo">
-                                <option value="">Seleccione tipo de movimiento</option>
-                                <option value="1">Impuestos</option>
-                                <option value="2">Vehiculos</option>
-                                <option value="3">Pago Proveedores</option>
-                                <option value="4">Gastos Personales</option>
-                                <option value="5">Fletes</option>
-                                <option value="6">Servicios publicos</option>
-                                <option value="7">Otros</option>
-                                <option value="8">Nomina</option>
-                            </select>
-                        </div>
-                        <div class="col-12 d-none" id="tipoOtroWrap">
-                            <label for="tipoOtro" class="form-label fw-semibold">
-                                <i class="fas fa-pen me-2 text-primary"></i>Especifica el tipo
-                            </label>
-                            <input type="text" class="form-control form-control-lg" id="tipoOtro" placeholder="Escribe el tipo de movimiento">
-                        </div>
-                        <div class="col-12">
-                            <label for="monto" class="form-label fw-semibold">
-                                <i class="fas fa-dollar-sign me-2 text-primary"></i>Monto del Movimiento
-                            </label>
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text bg-light">$</span>
-                                <input type="number" step="0.01" required class="form-control form-control-lg" id="monto" placeholder="0.00">
-                            </div>
-                        </div>
+            <form id="dataForm" class="row g-3">
+                <div class="col-lg-4 col-md-6">
+                    <label for="tipo" class="form-label fw-semibold">
+                        <i class="fas fa-tags me-2 text-primary"></i>Tipo de Movimiento
+                    </label>
+                    <select class="form-select form-select-lg" id="tipo">
+                        <option value="">Seleccione tipo de movimiento</option>
+                        <option value="1">Impuestos</option>
+                        <option value="2">Vehiculos</option>
+                        <option value="3">Pago Proveedores</option>
+                        <option value="4">Gastos Personales</option>
+                        <option value="5">Fletes</option>
+                        <option value="6">Servicios publicos</option>
+                        <option value="7">Otros</option>
+                        <option value="8">Nomina</option>
+                    </select>
+                </div>
+                <div class="col-lg-4 col-md-6 d-none" id="tipoOtroWrap">
+                    <label for="tipoOtro" class="form-label fw-semibold">
+                        <i class="fas fa-pen me-2 text-primary"></i>Especifica el tipo
+                    </label>
+                    <input type="text" class="form-control form-control-lg" id="tipoOtro" placeholder="Escribe el tipo de movimiento">
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <label for="monto" class="form-label fw-semibold">
+                        <i class="fas fa-dollar-sign me-2 text-primary"></i>Monto del Movimiento
+                    </label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-light">$</span>
+                        <input type="number" step="0.01" required class="form-control form-control-lg" id="monto" placeholder="0.00">
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label for="fechaHora" class="form-label fw-semibold">
-                                <i class="fas fa-calendar-alt me-2 text-primary"></i>Fecha y Hora del Movimiento
-                            </label>
-                            <input type="datetime-local" required class="form-control form-control-lg" id="fechaHora">
-                        </div>
-                        <div class="col-12">
-                            <label for="metodoPago" class="form-label fw-semibold">
-                                <i class="fas fa-credit-card me-2 text-primary"></i>Metodo de Pago
-                            </label>
-                            <select class="form-select form-select-lg" id="metodoPago" required>
-                                <option value="">Seleccione metodo de pago</option>
-                                <option value="Efectivo">Efectivo</option>
-                                <option value="Tarjeta">Tarjeta</option>
-                                <option value="Transferencia">Transferencia</option>
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label for="descripcion" class="form-label fw-semibold">
-                                <i class="fas fa-sticky-note me-2 text-primary"></i>Descripción del Movimiento
-                            </label>
-                            <input type="text" class="form-control form-control-lg" id="descripcion" placeholder="Ingrese una descripción detallada del movimiento">
-                        </div>
-                    </div>
+                <div class="col-lg-4 col-md-6">
+                    <label for="fechaHora" class="form-label fw-semibold">
+                        <i class="fas fa-calendar-alt me-2 text-primary"></i>Fecha y Hora del Movimiento
+                    </label>
+                    <input type="datetime-local" required class="form-control form-control-lg" id="fechaHora">
                 </div>
-
-            
+                <div class="col-lg-4 col-md-6">
+                    <label for="metodoPago" class="form-label fw-semibold">
+                        <i class="fas fa-credit-card me-2 text-primary"></i>Metodo de Pago
+                    </label>
+                    <select class="form-select form-select-lg" id="metodoPago" required>
+                        <option value="">Seleccione metodo de pago</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                </div>
+                <div class="col-lg-8 col-md-12">
+                    <label for="descripcion" class="form-label fw-semibold">
+                        <i class="fas fa-sticky-note me-2 text-primary"></i>Descripcion del Movimiento
+                    </label>
+                    <input type="text" class="form-control form-control-lg" id="descripcion" placeholder="Ingrese una descripcion detallada del movimiento">
+                </div>
                 <div class="col-12">
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                         <button type="reset" class="btn btn-outline-secondary btn-lg px-4 me-md-2">
@@ -217,4 +207,5 @@
 <!-- 
 
       
+
 
