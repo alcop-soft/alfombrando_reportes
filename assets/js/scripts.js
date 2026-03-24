@@ -1221,24 +1221,7 @@ Gracias por su compromiso y profesionalismo.`;
       e.preventDefault();
       try {
         const payload = buildGastoPayload();
-        try {
-          await ins("gastos", payload);
-        } catch (errInsert) {
-          const msg = String(errInsert?.message || "").toLowerCase();
-          if (!msg.includes("metodo")) throw errInsert;
-          const payloadAlt = { ...payload, metodo: payload.metodo_pago };
-          delete payloadAlt.metodo_pago;
-          try {
-            await ins("gastos", payloadAlt);
-          } catch (errAlt) {
-            const msgAlt = String(errAlt?.message || "").toLowerCase();
-            if (!msgAlt.includes("metodo")) throw errAlt;
-            const payloadBase = { ...payload };
-            delete payloadBase.metodo_pago;
-            await ins("gastos", payloadBase);
-            alertx("Se guardo el movimiento sin metodo de pago porque esa columna no existe en la base de datos.", "warning");
-          }
-        }
+        await ins("gastos", payload);
         resetGastosForm();
         renderGastos();
         alertx("El movimiento fue registrado correctamente.", "success");
