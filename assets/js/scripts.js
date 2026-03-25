@@ -117,7 +117,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }).format(d);
   };
   const intFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
+  const qtyFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
   const fmtInt = (n) => intFmt.format(Math.round(Number(n || 0)));
+  const fmtQty = (n) => qtyFmt.format(Number(n || 0));
   const money = (n) => `$${fmtInt(n)}`;
   const animateCounter = (element, value) => {
     if (!element) return;
@@ -526,7 +528,7 @@ Gracias por su compromiso y profesionalismo.`;
         carritoBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay productos agregados</td></tr>';
       } else {
         carritoBody.innerHTML = carritoProductos.map((item, i) =>
-          `<tr data-i="${i}" class="${i === editItemIndex ? "table-info" : ""}"><td>${item.producto}</td><td>${item.descripcion || "-"}</td><td>${fmtInt(item.cantidad)}</td><td>${money(item.precio)}</td><td>${money(item.subtotal)}</td><td><button type="button" class="btn btn-sm btn-outline-danger quitar-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></td></tr>`
+          `<tr data-i="${i}" class="${i === editItemIndex ? "table-info" : ""}"><td>${item.producto}</td><td>${item.descripcion || "-"}</td><td>${fmtQty(item.cantidad)}</td><td>${money(item.precio)}</td><td>${money(item.subtotal)}</td><td><button type="button" class="btn btn-sm btn-outline-danger quitar-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></td></tr>`
         ).join("");
       }
       const total = carritoProductos.reduce((s, x) => s + Number(x.subtotal || 0), 0);
@@ -811,7 +813,7 @@ Gracias por su compromiso y profesionalismo.`;
         const item = ventasVistaCache[idx];
         if (!item) return;
         const rows = (item.items || []).map((x) =>
-          `<tr><td>${x.producto || "-"}</td><td>${x.descripcion || "-"}</td><td>${fmtInt(x.cantidad)}</td><td>${money(x.precio)}</td><td>${money(x.subtotal)}</td></tr>`
+          `<tr><td>${x.producto || "-"}</td><td>${x.descripcion || "-"}</td><td>${fmtQty(x.cantidad)}</td><td>${money(x.precio)}</td><td>${money(x.subtotal)}</td></tr>`
         ).join("");
         const html = `<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>Producto</th><th>Descripcion</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="text-center text-muted">Sin productos</td></tr>'}</tbody></table></div>`;
         if (window.Swal) {
@@ -911,7 +913,7 @@ Gracias por su compromiso y profesionalismo.`;
       const btnEditar = esAdmin()
         ? `<button type="button" class="btn btn-outline-primary edit-venta-btn" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button>`
         : "";
-      return `<tr class="${saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
+      return `<tr class="${saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
     }).join("");
 
     const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
@@ -1139,7 +1141,7 @@ Gracias por su compromiso y profesionalismo.`;
       const btnEditarInst = esAdmin()
         ? `<button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button>`
         : "-";
-      return `<tr class="${completado ? "table-success" : ""}"><td><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtInt(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td>${btnEditarInst}</td></tr>`;
+      return `<tr class="${completado ? "table-success" : ""}"><td><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtQty(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td>${btnEditarInst}</td></tr>`;
     }).join("");
     if (q("#pedidoEntregar")) q("#pedidoEntregar").textContent = fmtInt(st.instalacion.length);
     const hoy = today();
@@ -1574,7 +1576,7 @@ Gracias por su compromiso y profesionalismo.`;
           carritoBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay productos agregados</td></tr>';
         } else {
           carritoBody.innerHTML = carritoMercancia.map((item, i) =>
-            `<tr data-i="${i}" class="${i === editItemIndex ? "table-info" : ""}"><td>${item.producto}</td><td>${item.descripcion || "-"}</td><td>${fmtInt(item.cantidad)}</td><td>${money(item.precio)}</td><td>${money(item.subtotal)}</td><td><button type="button" class="btn btn-sm btn-outline-danger quitar-mercancia-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></td></tr>`
+            `<tr data-i="${i}" class="${i === editItemIndex ? "table-info" : ""}"><td>${item.producto}</td><td>${item.descripcion || "-"}</td><td>${fmtQty(item.cantidad)}</td><td>${money(item.precio)}</td><td>${money(item.subtotal)}</td><td><button type="button" class="btn btn-sm btn-outline-danger quitar-mercancia-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></td></tr>`
           ).join("");
         }
         const total = carritoMercancia.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
@@ -1820,7 +1822,7 @@ Gracias por su compromiso y profesionalismo.`;
         const item = mercanciaVistaCache[idx];
         if (!item) return;
         const rows = (item.items || []).map((x) =>
-          `<tr><td>${x.producto || "-"}</td><td>${x.descripcion || "-"}</td><td>${fmtInt(x.cantidad)}</td><td>${money(x.precio)}</td><td>${money(x.subtotal)}</td></tr>`
+          `<tr><td>${x.producto || "-"}</td><td>${x.descripcion || "-"}</td><td>${fmtQty(x.cantidad)}</td><td>${money(x.precio)}</td><td>${money(x.subtotal)}</td></tr>`
         ).join("");
         const html = `<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>Producto</th><th>Descripcion</th><th>Cantidad</th><th>Valor Transporte</th><th>Subtotal</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="text-center text-muted">Sin productos</td></tr>'}</tbody></table></div>`;
         if (window.Swal) {
@@ -1893,7 +1895,7 @@ Gracias por su compromiso y profesionalismo.`;
       const acciones = withActions
         ? `<td><div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-info ver-items-mercancia-btn" data-idx="${idx}"><i class="fas fa-list me-1"></i>Ver</button>${btnEditarMercancia}</div></td>`
         : "";
-      return `<tr><td>${m.fechaRecepcion}</td><td>${m.numeroPedido}</td><td>${m.transportadora}</td><td>${m.remitente}</td><td>${m.clienteDestino}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtInt(m.cantidad)}</td><td>${money(m.total)}</td><td>${m.observaciones || "-"}</td>${acciones}</tr>`;
+      return `<tr><td>${m.fechaRecepcion}</td><td>${m.numeroPedido}</td><td>${m.transportadora}</td><td>${m.remitente}</td><td>${m.clienteDestino}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(m.cantidad)}</td><td>${money(m.total)}</td><td>${m.observaciones || "-"}</td>${acciones}</tr>`;
     }).join("");
   }
   function renderMercancia() {
@@ -2358,7 +2360,7 @@ Gracias por su compromiso y profesionalismo.`;
               legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
               tooltip: {
                 callbacks: {
-                  label: (ctx) => `${ctx.label}: ${fmtInt(ctx.raw || 0)} und`
+                  label: (ctx) => `${ctx.label}: ${fmtQty(ctx.raw || 0)} und`
                 }
               }
             }
@@ -2373,7 +2375,7 @@ Gracias por su compromiso y profesionalismo.`;
           ? ultimas.map((v) => {
             const productosCanon = [...new Set((v.productos || []).map((p) => canonProducto(p)).filter(Boolean))];
             const productoTxt = productosCanon.length > 1 ? `${productosCanon[0]} (+${productosCanon.length - 1})` : (productosCanon[0] || "-");
-            return `<tr><td>${v.fecha || "-"}</td><td>${v.cliente || "-"}</td><td>${productoTxt}</td><td>${fmtInt(v.cantidad)}</td><td>${money(v.total)}</td></tr>`;
+            return `<tr><td>${v.fecha || "-"}</td><td>${v.cliente || "-"}</td><td>${productoTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(v.total)}</td></tr>`;
           }).join("")
           : '<tr><td colspan="5" class="text-center text-muted">Sin ventas en el periodo</td></tr>';
       }
@@ -2400,7 +2402,7 @@ Gracias por su compromiso y profesionalismo.`;
       if (q("#ventasDiaBody")) q("#ventasDiaBody").innerHTML = rows; if (q("#tablaVentas")) q("#tablaVentas").style.display = "none"; if (q("#ventasDia")) q("#ventasDia").style.display = "";
     }
     if (vistActual.startsWith("instalacion")) {
-      const rows = st.instalacion.filter((x) => asDay(val(x, "fecha_entrega", "fechaEntrega")) === h).map((x) => `<tr><td>${val(x, "estado") || "-"}</td><td>${val(x, "instalador") || "-"}</td><td>${val(x, "cliente") || "-"}</td><td>${val(x, "telefono") || "-"}</td><td>${val(x, "producto") || "-"}</td><td>${fmtInt(val(x, "cantidad"))}</td><td>${val(x, "ubicacion") || "-"}</td><td>${val(x, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(x, "observaciones") || "-"}</td></tr>`).join("") || '<tr><td colspan="9" class="text-center">No hay instalaciones para hoy</td></tr>';
+      const rows = st.instalacion.filter((x) => asDay(val(x, "fecha_entrega", "fechaEntrega")) === h).map((x) => `<tr><td>${val(x, "estado") || "-"}</td><td>${val(x, "instalador") || "-"}</td><td>${val(x, "cliente") || "-"}</td><td>${val(x, "telefono") || "-"}</td><td>${val(x, "producto") || "-"}</td><td>${fmtQty(val(x, "cantidad"))}</td><td>${val(x, "ubicacion") || "-"}</td><td>${val(x, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(x, "observaciones") || "-"}</td></tr>`).join("") || '<tr><td colspan="9" class="text-center">No hay instalaciones para hoy</td></tr>';
       if (q("#instalacionDiaBody")) q("#instalacionDiaBody").innerHTML = rows; if (q("#tablaInstalacion")) q("#tablaInstalacion").style.display = "none"; if (q("#instalacionDia")) q("#instalacionDia").style.display = "";
     }
     if (vistActual.startsWith("gastos")) {
