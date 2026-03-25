@@ -83,6 +83,37 @@
 
     <div id="controlGastos" class="d-none">
     <h6 class="fw-semibold mb-3"><i class="fas fa-chart-pie me-2 text-primary"></i>Control de Gastos</h6>
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-3 col-md-6">
+                    <label for="gastosFiltroPeriodo" class="form-label fw-semibold mb-1">Periodo</label>
+                    <select id="gastosFiltroPeriodo" class="form-select">
+                        <option value="hoy">Hoy</option>
+                        <option value="mes" selected>Este mes</option>
+                        <option value="anio">Este ano</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6 gastos-custom-range d-none">
+                    <label for="gastosFechaDesde" class="form-label fw-semibold mb-1">Desde</label>
+                    <input type="date" id="gastosFechaDesde" class="form-control">
+                </div>
+                <div class="col-lg-3 col-md-6 gastos-custom-range d-none">
+                    <label for="gastosFechaHasta" class="form-label fw-semibold mb-1">Hasta</label>
+                    <input type="date" id="gastosFechaHasta" class="form-control">
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <button class="btn btn-primary w-100" type="button" id="gastosAplicarFiltro">
+                        <i class="fas fa-filter me-2"></i>Aplicar filtro
+                    </button>
+                </div>
+            </div>
+            <div class="mt-2">
+                <small class="text-muted" id="gastosFiltroActualLabel">Este mes</small>
+            </div>
+        </div>
+    </div>
     <div class="row g-3 mb-3">
         <div class="col-lg-4">
             <div class="card bg-danger text-white border-0 shadow-sm h-100">

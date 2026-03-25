@@ -146,6 +146,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
   const makePedidoId = () => `PED-${Date.now()}-${Math.floor(Math.random() * 900 + 100)}`;
   const asDay = (v) => String(v || "").slice(0, 10);
+  const inRangeGasto = (fecha, from, to) => {
+    const d = asDay(fecha);
+    if (!d || d === "-") return false;
+    return (!from || d >= from) && (!to || d <= to);
+  };
+  const rangeByFiltroGastos = () => {
+    const periodo = String(q("#gastosFiltroPeriodo")?.value || "mes");
+    const hoy = today();
+    const year = hoy.slice(0, 4);
+    const month = hoy.slice(0, 7);
+    if (periodo === "hoy") return { from: hoy, to: hoy, label: "Hoy" };
+    if (periodo === "mes") return { from: `${month}-01`, to: hoy, label: "Este mes" };
+    if (periodo === "anio") return { from: `${year}-01-01`, to: hoy, label: "Este ano" };
+    const from = q("#gastosFechaDesde")?.value || "";
+    const to = q("#gastosFechaHasta")?.value || "";
+    return { from, to, label: from && to ? `Personalizado (${from} a ${to})` : "Personalizado" };
+  };
+  const toggleCustomRangeGastos = () => {
+    const show = String(q("#gastosFiltroPeriodo")?.value || "") === "custom";
+    document.querySelectorAll(".gastos-custom-range").forEach((el) => el.classList.toggle("d-none", !show));
+  };
   const normalizeMercanciaDesc = (producto, descripcion) => {
     const p = String(producto || "").trim();
     const d = String(descripcion || "").trim();
@@ -1380,9 +1401,19 @@ Gracias por su compromiso y profesionalismo.`;
       if (editDescripcionInput) editDescripcionInput.value = val(item, "descripcion") || "";
       if (editModal) editModal.show();
     };
+    const filtroPeriodo = q("#gastosFiltroPeriodo");
+    const btnAplicarFiltro = q("#gastosAplicarFiltro");
+    if (filtroPeriodo) {
+      filtroPeriodo.onchange = () => {
+        toggleCustomRangeGastos();
+        if (String(filtroPeriodo.value) !== "custom") renderGastos();
+      };
+    }
+    if (btnAplicarFiltro) btnAplicarFiltro.onclick = () => renderGastos();
 
     initFechaHora();
     toggleTipoOtro();
+    toggleCustomRangeGastos();
     renderGastos(); buscador("buscadorGastos", "datatablesSimple"); mountTableTools("gastos");
   }
   function renderGastos() {
@@ -1397,8 +1428,17 @@ Gracias por su compromiso y profesionalismo.`;
       }).join("")
       : '<tr><td colspan="6" class="text-center text-muted">No hay movimientos registrados</td></tr>';
     if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(rows.length);
+
+    const range = rangeByFiltroGastos();
+    if (range.from && range.to && range.from > range.to) {
+      alertx("El rango personalizado no es valido. Verifica la fecha inicial y final.", "warning");
+      return;
+    }
+    if (q("#gastosFiltroActualLabel")) q("#gastosFiltroActualLabel").textContent = range.label;
+    const rowsFiltrados = rows.filter((g) => inRangeGasto(val(g, "fecha_hora", "fechaHora"), range.from, range.to));
+
     const hoy = today();
-    const movsHoy = rows.filter((g) => asDay(val(g, "fecha_hora", "fechaHora")) === hoy);
+    const movsHoy = rowsFiltrados.filter((g) => asDay(val(g, "fecha_hora", "fechaHora")) === hoy);
     const gastosHoy = movsHoy.reduce((s, g) => s + (esGastoEgreso(val(g, "tipo")) ? Number(val(g, "monto") || 0) : 0), 0);
 
     const days = [];
@@ -1407,7 +1447,7 @@ Gracias por su compromiso y profesionalismo.`;
       d.setDate(d.getDate() - i);
       days.push(d.toISOString().slice(0, 10));
     }
-    const gastosSemana = rows.reduce((s, g) => {
+    const gastosSemana = rowsFiltrados.reduce((s, g) => {
       const f = asDay(val(g, "fecha_hora", "fechaHora"));
       if (!days.includes(f)) return s;
       if (!esGastoEgreso(val(g, "tipo"))) return s;
@@ -1421,7 +1461,7 @@ Gracias por su compromiso y profesionalismo.`;
 
     const porTipo = {};
     const porDescripcion = {};
-    rows.forEach((g) => {
+    rowsFiltrados.forEach((g) => {
       const tipo = tipoGasto(val(g, "tipo")) || "Sin tipo";
       const descripcion = txt(val(g, "descripcion")) || "Sin descripcion";
       const monto = Number(val(g, "monto") || 0);
