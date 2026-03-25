@@ -2,6 +2,7 @@ let vistActual = "dashboard";
 
 document.addEventListener("DOMContentLoaded", async () => {
   const sb = window.supabaseClient;
+  const canUseSupabase = !!(sb && typeof sb.from === "function");
   const leerUsuario = () => {
     try {
       const raw = JSON.parse(localStorage.getItem("usuario") || "{}");
@@ -15,10 +16,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
   const usuarioLocal = leerUsuario();
 
-  if (!sb) {
-    console.error("Supabase client no inicializado");
-    window.location.replace("login.html");
-    return;
+  if (!canUseSupabase) {
+    console.warn("Supabase no disponible. Se intentara cargar informacion desde cache local.");
   }
   let sesionSupabaseValida = false;
   try {
@@ -240,7 +239,34 @@ Gracias por su compromiso y profesionalismo.`;
     c.appendChild(e);
     setTimeout(() => e.remove(), 3500);
   };
-  const errEs = (base, err) => `${base}${err?.message ? ` Detalle: ${err.message}` : ""}`;
+  const supabaseHint = (err) => {
+    if (typeof window.getSupabaseConnectionIssue !== "function") return "";
+    return txt(window.getSupabaseConnectionIssue(err));
+  };
+  const cacheKey = (k) => `cache_${k}`;
+  const readCache = (k) => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(cacheKey(k)) || "[]");
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (k === "ventas") {
+        const legacyVentas = JSON.parse(localStorage.getItem("ventas") || "[]");
+        return Array.isArray(legacyVentas) ? legacyVentas : [];
+      }
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  };
+  const writeCache = (k, rows) => {
+    try {
+      localStorage.setItem(cacheKey(k), JSON.stringify(Array.isArray(rows) ? rows : []));
+    } catch (_) {}
+  };
+  const errEs = (base, err) => {
+    const detalle = err?.message ? ` Detalle: ${err.message}` : "";
+    const hint = supabaseHint(err);
+    return `${base}${detalle}${hint ? ` ${hint}` : ""}`;
+  };
   window.editar = (fn) => {
     if (!validarPermisoAdmin()) return false;
     if (typeof fn === "function") fn();
@@ -405,18 +431,55 @@ Gracias por su compromiso y profesionalismo.`;
   };
 
   async function load(k) {
-    const { data, error } = await sb.from(t[k]).select("*").order("created_at", { ascending: false });
-    if (error) { console.error(error); alertx(`No fue posible cargar los datos de ${k}. Detalle: ${error.message}`, "error"); st[k] = []; return; }
-    st[k] = data || [];
-    if (k === "ventas") localStorage.setItem("ventas", JSON.stringify(st[k]));
+    if (!canUseSupabase) {
+      st[k] = readCache(k);
+      return;
+    }
+
+    const orderCandidates = {
+      ventas: ["fecha", "created_at", "id"],
+      instalacion: ["fecha_entrega", "created_at", "id"],
+      gastos: ["fecha_hora", "created_at", "id"],
+      mercancia: ["fecha_recepcion", "created_at", "id"],
+      visitas: ["fecha", "created_at", "id"]
+    };
+
+    try {
+      const columns = orderCandidates[k] || ["id"];
+      let response = null;
+      let lastError = null;
+      for (const column of columns) {
+        const res = await sb.from(t[k]).select("*").order(column, { ascending: false });
+        if (!res.error) {
+          response = res;
+          break;
+        }
+        lastError = res.error;
+      }
+      if (!response) throw lastError || new Error("No fue posible consultar datos.");
+      st[k] = response.data || [];
+      writeCache(k, st[k]);
+      if (k === "ventas") localStorage.setItem("ventas", JSON.stringify(st[k]));
+    } catch (err) {
+      console.error(err);
+      const cached = readCache(k);
+      st[k] = cached;
+      if (cached.length) {
+        alertx(`No fue posible actualizar ${k} desde Supabase. Mostrando datos en cache local (${fmtInt(cached.length)}).`, "warning");
+      } else {
+        alertx(errEs(`No fue posible cargar los datos de ${k}.`, err), "error");
+      }
+    }
   }
   async function ins(k, p) {
+    if (!canUseSupabase) throw new Error("Sin conexion a Supabase. No se pueden guardar cambios.");
     const { error } = await sb.from(t[k]).insert([p]);
     if (error) throw error;
     logHistory(k, "crear", p);
     await load(k);
   }
   async function upd(k, id, p) {
+    if (!canUseSupabase) throw new Error("Sin conexion a Supabase. No se pueden guardar cambios.");
     const { error } = await sb.from(t[k]).update(p).eq("id", id);
     if (error) throw error;
     logHistory(k, "editar", { id, ...p });
@@ -1308,16 +1371,9 @@ Gracias por su compromiso y profesionalismo.`;
     };
 
     async function cargarVisitas() {
-      try {
-        const { data, error } = await sb.from(t.visitas).select("*").order("id", { ascending: false });
-        if (error) throw error;
-        st.visitas = data || [];
-        renderizarVisitas();
-      } catch (err) {
-        st.visitas = [];
-        renderizarVisitas();
-        alertx(errEs("No fue posible cargar las visitas.", err), "error");
-      }
+      await load("visitas");
+      st.visitas = [...(st.visitas || [])].sort((a, b) => Number(val(b, "id") || 0) - Number(val(a, "id") || 0));
+      renderizarVisitas();
     }
 
     function actualizarCards() {
@@ -2206,21 +2262,9 @@ Gracias por su compromiso y profesionalismo.`;
       document.querySelectorAll(".dash-custom-range").forEach((el) => el.classList.toggle("d-none", !show));
     };
 
-    let ventas = [];
-    let instalaciones = [];
-    try {
-      const [resVentas, resInst] = await Promise.all([
-        sb.from(t.ventas).select("*").order("fecha", { ascending: false }),
-        sb.from(t.instalacion).select("id,estado,fecha_entrega")
-      ]);
-      if (resVentas.error) throw resVentas.error;
-      if (resInst.error) throw resInst.error;
-      ventas = resVentas.data || [];
-      instalaciones = resInst.data || [];
-    } catch (err) {
-      alertx(errEs("No fue posible cargar la informacion del tablero.", err), "error");
-      return;
-    }
+    await Promise.all([load("ventas"), load("instalacion")]);
+    const ventas = [...(st.ventas || [])];
+    const instalaciones = [...(st.instalacion || [])];
 
     const ventasAgrupadasAll = agruparVentas(ventas);
     const hoy = today();
@@ -2431,7 +2475,11 @@ Gracias por su compromiso y profesionalismo.`;
   }
 
   const logout = q("#btnCerrarSesion");
-  if (logout) logout.onclick = async () => { localStorage.removeItem("usuario"); await sb.auth.signOut(); window.location.href = "login.html"; };
+  if (logout) logout.onclick = async () => {
+    localStorage.removeItem("usuario");
+    if (sb && sb.auth) await sb.auth.signOut();
+    window.location.href = "login.html";
+  };
 
   document.addEventListener("click", (e) => {
     const id = e.target && e.target.id;
