@@ -146,19 +146,46 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
   const makePedidoId = () => `PED-${Date.now()}-${Math.floor(Math.random() * 900 + 100)}`;
   const asDay = (v) => String(v || "").slice(0, 10);
+  const fechaISO = (raw) => {
+    if (!raw) return "";
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+      const y = raw.getFullYear();
+      const m = String(raw.getMonth() + 1).padStart(2, "0");
+      const d = String(raw.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+    const source = String(raw).trim();
+    if (!source) return "";
+    const isoLike = source.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (isoLike) return `${isoLike[1]}-${isoLike[2]}-${isoLike[3]}`;
+    const latamLike = source.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+    if (latamLike) {
+      const dd = String(latamLike[1]).padStart(2, "0");
+      const mm = String(latamLike[2]).padStart(2, "0");
+      const yy = String(latamLike[3]);
+      return `${yy}-${mm}-${dd}`;
+    }
+    const d = new Date(source.includes("T") ? source : source.replace(" ", "T"));
+    if (Number.isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
   const inRangeGasto = (fecha, from, to) => {
-    const d = asDay(fecha);
+    const d = fechaISO(fecha);
     if (!d || d === "-") return false;
     return (!from || d >= from) && (!to || d <= to);
   };
+  const fechaMovimientoGasto = (row) => val(row, "fecha_hora", "fechaHora", "fecha", "created_at");
   const rangeByFiltroGastos = () => {
     const periodo = String(q("#gastosFiltroPeriodo")?.value || "mes");
-    const hoy = today();
+    const hoy = nowLocalDateTime().slice(0, 10);
     const year = hoy.slice(0, 4);
     const month = hoy.slice(0, 7);
     if (periodo === "hoy") return { from: hoy, to: hoy, label: "Hoy" };
     if (periodo === "mes") return { from: `${month}-01`, to: hoy, label: "Este mes" };
-    if (periodo === "anio") return { from: `${year}-01-01`, to: hoy, label: "Este ano" };
+    if (periodo === "anio") return { from: `${year}-01-01`, to: hoy, label: "Este año" };
     const from = q("#gastosFechaDesde")?.value || "";
     const to = q("#gastosFechaHasta")?.value || "";
     return { from, to, label: from && to ? `Personalizado (${from} a ${to})` : "Personalizado" };
@@ -460,7 +487,7 @@ Gracias por su compromiso y profesionalismo.`;
     const orderCandidates = {
       ventas: ["fecha", "created_at", "id"],
       instalacion: ["fecha_entrega", "created_at", "id"],
-      gastos: ["fecha_hora", "created_at", "id"],
+      gastos: ["fecha_hora", "fecha", "created_at", "id"],
       mercancia: ["fecha_recepcion", "created_at", "id"],
       visitas: ["fecha", "created_at", "id"]
     };
@@ -1396,7 +1423,7 @@ Gracias por su compromiso y profesionalismo.`;
       if (editTipoOtroInput) editTipoOtroInput.value = tipoEnCatalogo ? "" : rawTipo;
       toggleEditTipoOtro();
       if (editMontoInput) editMontoInput.value = Number(val(item, "monto") || 0);
-      if (editFechaHoraInput) editFechaHoraInput.value = normalizarFechaHoraInput(val(item, "fecha_hora", "fechaHora"));
+      if (editFechaHoraInput) editFechaHoraInput.value = normalizarFechaHoraInput(fechaMovimientoGasto(item));
       if (editMetodoPagoInput) editMetodoPagoInput.value = normalizarMetodoPagoGasto(val(item, "metodo_pago", "metodoPago", "metodo"));
       if (editDescripcionInput) editDescripcionInput.value = val(item, "descripcion") || "";
       if (editModal) editModal.show();
@@ -1424,7 +1451,7 @@ Gracias por su compromiso y profesionalismo.`;
         const btnEditar = esAdmin()
           ? `<button type="button" class="btn btn-sm btn-outline-primary edit-gasto-btn" data-id="${val(g, "id")}"><i class="fas fa-pen me-1"></i>Editar</button>`
           : "-";
-        return `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${val(g, "descripcion") || "-"}</td><td>${money(val(g, "monto"))}</td><td>${metodoPagoGasto(g)}</td><td>${fmtDateTime(val(g, "fecha_hora", "fechaHora"))}</td><td>${btnEditar}</td></tr>`;
+        return `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${val(g, "descripcion") || "-"}</td><td>${money(val(g, "monto"))}</td><td>${metodoPagoGasto(g)}</td><td>${fmtDateTime(fechaMovimientoGasto(g))}</td><td>${btnEditar}</td></tr>`;
       }).join("")
       : '<tr><td colspan="6" class="text-center text-muted">No hay movimientos registrados</td></tr>';
     if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(rows.length);
@@ -1435,27 +1462,29 @@ Gracias por su compromiso y profesionalismo.`;
       return;
     }
     if (q("#gastosFiltroActualLabel")) q("#gastosFiltroActualLabel").textContent = range.label;
-    const rowsFiltrados = rows.filter((g) => inRangeGasto(val(g, "fecha_hora", "fechaHora"), range.from, range.to));
+    const rowsFiltrados = rows.filter((g) => inRangeGasto(fechaMovimientoGasto(g), range.from, range.to));
 
-    const hoy = today();
-    const movsHoy = rowsFiltrados.filter((g) => asDay(val(g, "fecha_hora", "fechaHora")) === hoy);
-    const gastosHoy = movsHoy.reduce((s, g) => s + (esGastoEgreso(val(g, "tipo")) ? Number(val(g, "monto") || 0) : 0), 0);
+    const hoy = nowLocalDateTime().slice(0, 10);
+    const gastosGenerales = rowsFiltrados.reduce((s, g) => s + (esGastoEgreso(val(g, "tipo")) ? Number(val(g, "monto") || 0) : 0), 0);
 
     const days = [];
     for (let i = 0; i < 7; i += 1) {
-      const d = new Date(`${hoy}T00:00:00`);
+      const d = new Date(`${hoy}T12:00:00`);
       d.setDate(d.getDate() - i);
-      days.push(d.toISOString().slice(0, 10));
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      days.push(`${y}-${m}-${day}`);
     }
     const gastosSemana = rowsFiltrados.reduce((s, g) => {
-      const f = asDay(val(g, "fecha_hora", "fechaHora"));
+      const f = fechaISO(fechaMovimientoGasto(g));
       if (!days.includes(f)) return s;
       if (!esGastoEgreso(val(g, "tipo"))) return s;
       return s + Number(val(g, "monto") || 0);
     }, 0);
     const promDia = gastosSemana / 7;
 
-    animateCounter(q("#gastosKpiHoy"), gastosHoy);
+    animateCounter(q("#gastosKpiHoy"), gastosGenerales);
     animateCounter(q("#gastosKpiSemana"), gastosSemana);
     animateCounter(q("#gastosKpiPromDia"), promDia);
 
