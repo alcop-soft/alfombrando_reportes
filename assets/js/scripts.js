@@ -1301,7 +1301,7 @@ Gracias por su compromiso y profesionalismo.`;
     const body = q("#datatablesSimple tbody"); if (!body) return;
     const rows = st.gastos || [];
     body.innerHTML = rows.length
-      ? rows.map((g) => `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${money(val(g, "monto"))}</td><td>${metodoPagoGasto(g)}</td><td>${fmtDateTime(val(g, "fecha_hora", "fechaHora"))}</td><td>${val(g, "descripcion") || "-"}</td></tr>`).join("")
+      ? rows.map((g) => `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${val(g, "descripcion") || "-"}</td><td>${money(val(g, "monto"))}</td><td>${metodoPagoGasto(g)}</td><td>${fmtDateTime(val(g, "fecha_hora", "fechaHora"))}</td></tr>`).join("")
       : '<tr><td colspan="5" class="text-center text-muted">No hay movimientos registrados</td></tr>';
     if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(rows.length);
     const hoy = today();
@@ -1323,9 +1323,69 @@ Gracias por su compromiso y profesionalismo.`;
     const promDia = gastosSemana / 7;
 
     animateCounter(q("#gastosKpiHoy"), gastosHoy);
-    animateCounter(q("#gastosKpiMovHoy"), movsHoy.length);
     animateCounter(q("#gastosKpiSemana"), gastosSemana);
     animateCounter(q("#gastosKpiPromDia"), promDia);
+
+    const porTipo = {};
+    const porDescripcion = {};
+    rows.forEach((g) => {
+      const tipo = tipoGasto(val(g, "tipo")) || "Sin tipo";
+      const descripcion = txt(val(g, "descripcion")) || "Sin descripcion";
+      const monto = Number(val(g, "monto") || 0);
+      porTipo[tipo] = (porTipo[tipo] || 0) + monto;
+      porDescripcion[descripcion] = (porDescripcion[descripcion] || 0) + monto;
+    });
+    const tipoResumen = Object.entries(porTipo).sort((a, b) => b[1] - a[1]);
+    const descripcionResumen = Object.entries(porDescripcion).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+    if (charts.gastosPorTipo) charts.gastosPorTipo.destroy();
+    if (charts.gastosPorDescripcion) charts.gastosPorDescripcion.destroy();
+
+    if (window.Chart && q("#chartGastosTipo")) {
+      charts.gastosPorTipo = new window.Chart(q("#chartGastosTipo"), {
+        type: "doughnut",
+        data: {
+          labels: tipoResumen.map((x) => x[0]),
+          datasets: [{
+            data: tipoResumen.map((x) => x[1]),
+            backgroundColor: chartPalette.slice(0, Math.max(tipoResumen.length, 1))
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 1.3,
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${money(ctx.raw || 0)}` } }
+          }
+        }
+      });
+    }
+
+    if (window.Chart && q("#chartGastosDescripcion")) {
+      charts.gastosPorDescripcion = new window.Chart(q("#chartGastosDescripcion"), {
+        type: "bar",
+        data: {
+          labels: descripcionResumen.map((x) => x[0]),
+          datasets: [{
+            label: "Total",
+            data: descripcionResumen.map((x) => x[1]),
+            backgroundColor: "#0f766e"
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 1.6,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => money(ctx.raw || 0) } }
+          }
+        }
+      });
+    }
     ensureTablePagination(q("#datatablesSimple"), "gastos", 10);
   }
 
@@ -2450,8 +2510,8 @@ Gracias por su compromiso y profesionalismo.`;
       if (q("#instalacionDiaBody")) q("#instalacionDiaBody").innerHTML = rows; if (q("#tablaInstalacion")) q("#tablaInstalacion").style.display = "none"; if (q("#instalacionDia")) q("#instalacionDia").style.display = "";
     }
     if (vistActual.startsWith("gastos")) {
-      const rows = st.gastos.filter((x) => asDay(val(x, "fecha_hora", "fechaHora")) === h).map((x) => `<tr><td>${tipoGasto(val(x, "tipo"))}</td><td>${money(val(x, "monto"))}</td><td>${metodoPagoGasto(x)}</td><td>${fmtDateTime(val(x, "fecha_hora", "fechaHora"))}</td><td>${val(x, "descripcion") || "-"}</td></tr>`).join("") || '<tr><td colspan="5" class="text-center">No hay gastos para hoy</td></tr>';
-      if (q("#gastosDiaBody")) q("#gastosDiaBody").innerHTML = rows; if (q("#tablaGastos")) q("#tablaGastos").style.display = "none"; if (q("#gastosDia")) q("#gastosDia").style.display = "";
+      if (q("#tablaGastos")) q("#tablaGastos").style.display = "none";
+      if (q("#controlGastos")) q("#controlGastos").classList.remove("d-none");
     }
     if (vistActual.startsWith("mercancia")) {
       const mercanciaHoy = buildMercanciaVista(st.mercancia.filter((x) => asDay(val(x, "fecha_recepcion", "fechaRecepcion")) === h));
@@ -2471,7 +2531,8 @@ Gracias por su compromiso y profesionalismo.`;
   }
   function showAll() {
     ["#tablaVentas", "#tablamercancia", "#tablaInstalacion", "#tablaGastos", "#tablaVisitas"].forEach((id) => { const e = q(id); if (e) e.style.display = ""; });
-    ["#ventasDia", "#mercanciaDia", "#instalacionDia", "#gastosDia", "#visitasDia"].forEach((id) => { const e = q(id); if (e) e.style.display = "none"; });
+    ["#ventasDia", "#mercanciaDia", "#instalacionDia", "#visitasDia"].forEach((id) => { const e = q(id); if (e) e.style.display = "none"; });
+    if (q("#controlGastos")) q("#controlGastos").classList.add("d-none");
   }
 
   const logout = q("#btnCerrarSesion");

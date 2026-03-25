@@ -81,8 +81,10 @@
     </div>
     </div>
 
+    <div id="controlGastos" class="d-none">
+    <h6 class="fw-semibold mb-3"><i class="fas fa-chart-pie me-2 text-primary"></i>Control de Gastos</h6>
     <div class="row g-3 mb-3">
-        <div class="col-lg-3">
+        <div class="col-lg-4">
             <div class="card bg-danger text-white border-0 shadow-sm h-100">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
@@ -93,18 +95,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3">
-            <div class="card bg-primary text-white border-0 shadow-sm h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-1">Movimientos Hoy</h6>
-                        <h3 class="mb-0" id="gastosKpiMovHoy" data-counter-type="number">0</h3>
-                    </div>
-                    <i class="fas fa-exchange-alt fs-2 opacity-50"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-3">
+        <div class="col-lg-4">
             <div class="card bg-warning text-white border-0 shadow-sm h-100">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
@@ -115,7 +106,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3">
+        <div class="col-lg-4">
             <div class="card bg-success text-white border-0 shadow-sm h-100">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
@@ -126,6 +117,29 @@
                 </div>
             </div>
         </div>
+    </div>
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="fas fa-tags me-2 text-primary"></i>Movimientos por Tipo
+                </div>
+                <div class="card-body">
+                    <canvas id="chartGastosTipo"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="fas fa-sticky-note me-2 text-primary"></i>Movimientos por Descripcion
+                </div>
+                <div class="card-body">
+                    <canvas id="chartGastosDescripcion"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
     </div>
 
     <!-- Buscador General -->
@@ -142,7 +156,7 @@
                     <i class="fas fa-list me-2"></i>Todos los Movimientos
                 </button>
                 <button id="btnGastosDia" class="btn btn-outline-primary" type="button">
-                    <i class="fas fa-calendar-day me-2"></i>Movimientos de Hoy
+                    <i class="fas fa-chart-pie me-2"></i>Control de Gastos
                 </button>
             </div>
         </div>
@@ -169,34 +183,18 @@
                     <thead class="table-light">
                         <tr>
                             <th class="fw-semibold"><i class="fas fa-tags me-2"></i>Tipo de Movimiento</th>
+                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>DescripciÃ³n</th>
                             <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Monto</th>
                             <th class="fw-semibold"><i class="fas fa-credit-card me-2"></i>Metodo de Pago</th>
                             <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha y Hora</th>
-                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Descripción</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Los datos se agregarán aquí -->
+                        <!-- Los datos se agregarÃ¡n aquÃ­ -->
                     </tbody>
                 </table>
             </div>
-            <div id="gastosDia" class="table-responsive" style="display:none;">
-                <table class="table table-hover mb-0 align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="fw-semibold"><i class="fas fa-tags me-2"></i>Tipo de Movimiento</th>
-                            <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Monto</th>
-                            <th class="fw-semibold"><i class="fas fa-credit-card me-2"></i>Metodo de Pago</th>
-                            <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha y Hora</th>
-                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Descripción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="gastosDiaBody">
-                        <!-- Los datos se agregarán aquí -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
+</div>
     </div>
 
 
@@ -207,5 +205,6 @@
 <!-- 
 
       
+
 
 
