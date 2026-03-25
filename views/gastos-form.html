@@ -187,6 +187,7 @@
                             <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Monto</th>
                             <th class="fw-semibold"><i class="fas fa-credit-card me-2"></i>Metodo de Pago</th>
                             <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha y Hora</th>
+                            <th class="fw-semibold"><i class="fas fa-tools me-2"></i>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -200,11 +201,63 @@
 
 </div>
 
-
-
-<!-- 
-
-      
-
-
-
+<div class="modal fade" id="editarGastoModal" tabindex="-1" aria-labelledby="editarGastoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editarGastoLabel"><i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Movimiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="editGastoForm">
+                <div class="modal-body text-start">
+                    <input type="hidden" id="editGastoId">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="editTipo" class="form-label fw-semibold">Tipo de Movimiento</label>
+                            <select class="form-select" id="editTipo">
+                                <option value="">Seleccione tipo de movimiento</option>
+                                <option value="1">Impuestos</option>
+                                <option value="2">Vehiculos</option>
+                                <option value="3">Pago Proveedores</option>
+                                <option value="4">Gastos Personales</option>
+                                <option value="5">Fletes</option>
+                                <option value="6">Servicios publicos</option>
+                                <option value="7">Otros</option>
+                                <option value="8">Nomina</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-none" id="editTipoOtroWrap">
+                            <label for="editTipoOtro" class="form-label fw-semibold">Especifica el tipo</label>
+                            <input type="text" class="form-control" id="editTipoOtro" placeholder="Escribe el tipo de movimiento">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editMonto" class="form-label fw-semibold">Monto</label>
+                            <input type="number" min="0.01" step="0.01" class="form-control" id="editMonto" placeholder="0.00">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editFechaHora" class="form-label fw-semibold">Fecha y Hora</label>
+                            <input type="datetime-local" class="form-control" id="editFechaHora">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editMetodoPago" class="form-label fw-semibold">Metodo de Pago</label>
+                            <select class="form-select" id="editMetodoPago">
+                                <option value="">Seleccione metodo de pago</option>
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Tarjeta">Tarjeta</option>
+                                <option value="Transferencia">Transferencia</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="editDescripcion" class="form-label fw-semibold">Descripcion</label>
+                            <input type="text" class="form-control" id="editDescripcion" placeholder="Descripcion del movimiento">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

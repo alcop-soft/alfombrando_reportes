@@ -1234,6 +1234,17 @@ Gracias por su compromiso y profesionalismo.`;
     const fechaHoraInput = q("#fechaHora");
     const descripcionInput = q("#descripcion");
     const metodoPagoInput = q("#metodoPago");
+    const editModalEl = q("#editarGastoModal");
+    const editForm = q("#editGastoForm");
+    const editModal = editModalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editModalEl) : null;
+    const editIdInput = q("#editGastoId");
+    const editTipoSelect = q("#editTipo");
+    const editTipoOtroWrap = q("#editTipoOtroWrap");
+    const editTipoOtroInput = q("#editTipoOtro");
+    const editMontoInput = q("#editMonto");
+    const editFechaHoraInput = q("#editFechaHora");
+    const editMetodoPagoInput = q("#editMetodoPago");
+    const editDescripcionInput = q("#editDescripcion");
 
     const toggleTipoOtro = () => {
       const mostrarOtro = txt(tipoSelect?.value) === GASTO_TIPO_OTRO;
@@ -1243,15 +1254,39 @@ Gracias por su compromiso y profesionalismo.`;
         if (!mostrarOtro) tipoOtroInput.value = "";
       }
     };
+    const toggleEditTipoOtro = () => {
+      const mostrarOtro = txt(editTipoSelect?.value) === GASTO_TIPO_OTRO;
+      if (editTipoOtroWrap) editTipoOtroWrap.classList.toggle("d-none", !mostrarOtro);
+      if (editTipoOtroInput) {
+        editTipoOtroInput.disabled = !mostrarOtro;
+        if (!mostrarOtro) editTipoOtroInput.value = "";
+      }
+    };
     const initFechaHora = () => {
       if (!fechaHoraInput || txt(fechaHoraInput.value)) return;
       fechaHoraInput.value = nowLocalDateTime();
+    };
+    const normalizarFechaHoraInput = (raw) => {
+      const source = txt(raw).replace(" ", "T");
+      if (!source) return nowLocalDateTime();
+      const d = new Date(source);
+      if (Number.isNaN(d.getTime())) return source.slice(0, 16);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      return d.toISOString().slice(0, 16);
     };
     const resolverTipoMovimiento = () => {
       const tipoBase = txt(tipoSelect?.value);
       if (!tipoBase) throw new Error("Selecciona el tipo de movimiento.");
       if (tipoBase !== GASTO_TIPO_OTRO) return tipoBase;
       const tipoManual = txt(tipoOtroInput?.value);
+      if (!tipoManual) throw new Error("Escribe el tipo de movimiento en 'Otro'.");
+      return tipoManual;
+    };
+    const resolverTipoMovimientoEdit = () => {
+      const tipoBase = txt(editTipoSelect?.value);
+      if (!tipoBase) throw new Error("Selecciona el tipo de movimiento.");
+      if (tipoBase !== GASTO_TIPO_OTRO) return tipoBase;
+      const tipoManual = txt(editTipoOtroInput?.value);
       if (!tipoManual) throw new Error("Escribe el tipo de movimiento en 'Otro'.");
       return tipoManual;
     };
@@ -1271,6 +1306,22 @@ Gracias por su compromiso y profesionalismo.`;
         metodo_pago: metodoPago
       };
     };
+    const buildGastoPayloadEdit = () => {
+      const tipo = resolverTipoMovimientoEdit();
+      const monto = Number(editMontoInput?.value || 0);
+      if (!Number.isFinite(monto) || monto <= 0) throw new Error("Ingresa un monto mayor que cero.");
+      const fechaHora = txt(editFechaHoraInput?.value);
+      if (!fechaHora) throw new Error("Selecciona fecha y hora del movimiento.");
+      const metodoPago = normalizarMetodoPagoGasto(editMetodoPagoInput?.value);
+      if (!metodoPago) throw new Error("Selecciona el metodo de pago.");
+      return {
+        tipo,
+        monto,
+        fecha_hora: fechaHora,
+        descripcion: txt(editDescripcionInput?.value),
+        metodo_pago: metodoPago
+      };
+    };
     const resetGastosForm = () => {
       form.reset();
       initFechaHora();
@@ -1278,6 +1329,7 @@ Gracias por su compromiso y profesionalismo.`;
     };
 
     if (tipoSelect) tipoSelect.onchange = () => toggleTipoOtro();
+    if (editTipoSelect) editTipoSelect.onchange = () => toggleEditTipoOtro();
     form.onreset = () => window.setTimeout(() => {
       initFechaHora();
       toggleTipoOtro();
@@ -1292,6 +1344,42 @@ Gracias por su compromiso y profesionalismo.`;
         alertx("El movimiento fue registrado correctamente.", "success");
       } catch (err) { alertx(errEs("No fue posible guardar el movimiento.", err), "error"); }
     };
+    if (editForm && !editForm.dataset.bound) {
+      editForm.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!validarPermisoAdmin()) return;
+        const id = txt(editIdInput?.value);
+        if (!id) return;
+        try {
+          const payload = buildGastoPayloadEdit();
+          await upd("gastos", id, payload);
+          renderGastos();
+          if (editModal) editModal.hide();
+          alertx("El movimiento fue actualizado correctamente.", "success");
+        } catch (err) {
+          alertx(errEs("No fue posible actualizar el movimiento.", err), "error");
+        }
+      };
+      editForm.dataset.bound = "1";
+    }
+    body.onclick = (e) => {
+      const btn = e.target.closest(".edit-gasto-btn");
+      if (!btn) return;
+      if (!validarPermisoAdmin()) return;
+      const item = st.gastos.find((x) => String(val(x, "id")) === String(btn.dataset.id));
+      if (!item) return;
+      const rawTipo = txt(val(item, "tipo"));
+      const tipoEnCatalogo = Object.prototype.hasOwnProperty.call(GASTOS_TIPOS, rawTipo);
+      if (editIdInput) editIdInput.value = val(item, "id");
+      if (editTipoSelect) editTipoSelect.value = tipoEnCatalogo ? rawTipo : GASTO_TIPO_OTRO;
+      if (editTipoOtroInput) editTipoOtroInput.value = tipoEnCatalogo ? "" : rawTipo;
+      toggleEditTipoOtro();
+      if (editMontoInput) editMontoInput.value = Number(val(item, "monto") || 0);
+      if (editFechaHoraInput) editFechaHoraInput.value = normalizarFechaHoraInput(val(item, "fecha_hora", "fechaHora"));
+      if (editMetodoPagoInput) editMetodoPagoInput.value = normalizarMetodoPagoGasto(val(item, "metodo_pago", "metodoPago", "metodo"));
+      if (editDescripcionInput) editDescripcionInput.value = val(item, "descripcion") || "";
+      if (editModal) editModal.show();
+    };
 
     initFechaHora();
     toggleTipoOtro();
@@ -1301,8 +1389,13 @@ Gracias por su compromiso y profesionalismo.`;
     const body = q("#datatablesSimple tbody"); if (!body) return;
     const rows = st.gastos || [];
     body.innerHTML = rows.length
-      ? rows.map((g) => `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${val(g, "descripcion") || "-"}</td><td>${money(val(g, "monto"))}</td><td>${metodoPagoGasto(g)}</td><td>${fmtDateTime(val(g, "fecha_hora", "fechaHora"))}</td></tr>`).join("")
-      : '<tr><td colspan="5" class="text-center text-muted">No hay movimientos registrados</td></tr>';
+      ? rows.map((g) => {
+        const btnEditar = esAdmin()
+          ? `<button type="button" class="btn btn-sm btn-outline-primary edit-gasto-btn" data-id="${val(g, "id")}"><i class="fas fa-pen me-1"></i>Editar</button>`
+          : "-";
+        return `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${val(g, "descripcion") || "-"}</td><td>${money(val(g, "monto"))}</td><td>${metodoPagoGasto(g)}</td><td>${fmtDateTime(val(g, "fecha_hora", "fechaHora"))}</td><td>${btnEditar}</td></tr>`;
+      }).join("")
+      : '<tr><td colspan="6" class="text-center text-muted">No hay movimientos registrados</td></tr>';
     if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(rows.length);
     const hoy = today();
     const movsHoy = rows.filter((g) => asDay(val(g, "fecha_hora", "fechaHora")) === hoy);
