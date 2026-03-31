@@ -2266,8 +2266,6 @@ Gracias por su compromiso y profesionalismo.`;
 
     const renderFiltered = () => {
       const cart = applyFilters();
-      const modo = String(filtroModo?.value || "pendientes");
-      const soloVisual = modo === "abonos";
       if (!cart.length) {
         tb.innerHTML = "";
         if (msg) msg.style.display = "";
@@ -2284,9 +2282,10 @@ Gracias por su compromiso y profesionalismo.`;
         const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
         const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
         const metodoSeleccionado = normalizarMetodoCartera(c.metodoCartera);
-        const acciones = soloVisual
-          ? '<span class="text-muted small">Solo visual</span>'
-          : `<div class="d-flex flex-column flex-md-row gap-2"><input type="number" class="abono-input form-control form-control-sm" min="0.01" step="0.01" data-i="${i}" placeholder="Valor"><input type="text" class="abono-cartera-input form-control form-control-sm" data-i="${i}" placeholder="No. cartera" value="${c.numeroCartera && c.numeroCartera !== "-" ? c.numeroCartera : ""}"><select class="metodo-cartera-select form-select form-select-sm" data-i="${i}"><option value="">Metodo</option><option value="Transferencia" ${metodoSeleccionado === "Transferencia" ? "selected" : ""}>Transferencia</option><option value="Tarjeta" ${metodoSeleccionado === "Tarjeta" ? "selected" : ""}>Tarjeta</option><option value="Efectivo" ${metodoSeleccionado === "Efectivo" ? "selected" : ""}>Efectivo</option></select><button class="btn btn-success btn-sm abonar-btn" data-id="${c.id}" data-i="${i}">Abonar</button></div>`;
+        const puedeAbonar = Number(c.saldo || 0) > 0;
+        const acciones = puedeAbonar
+          ? `<div class="d-flex flex-column flex-md-row gap-2"><input type="number" class="abono-input form-control form-control-sm" min="0.01" step="0.01" data-i="${i}" placeholder="Valor"><input type="text" class="abono-cartera-input form-control form-control-sm" data-i="${i}" placeholder="No. cartera" value="${c.numeroCartera && c.numeroCartera !== "-" ? c.numeroCartera : ""}"><select class="metodo-cartera-select form-select form-select-sm" data-i="${i}"><option value="">Metodo</option><option value="Transferencia" ${metodoSeleccionado === "Transferencia" ? "selected" : ""}>Transferencia</option><option value="Tarjeta" ${metodoSeleccionado === "Tarjeta" ? "selected" : ""}>Tarjeta</option><option value="Efectivo" ${metodoSeleccionado === "Efectivo" ? "selected" : ""}>Efectivo</option></select><button class="btn btn-success btn-sm abonar-btn" data-id="${c.id}" data-i="${i}">Abonar</button></div>`
+          : '<span class="badge bg-success">Pagado</span>';
         return `<tr class="${c.saldo <= 0 ? "table-success" : ""}"><td>${c.cliente}</td><td>${c.telefono}</td><td>${productoTxt}</td><td>${descripcionTxt}</td><td>${c.fecha}</td><td>${c.numeroPedido}</td><td>${c.numeroCartera || "-"}</td><td>${c.metodoCartera || "-"}</td><td>${money(c.total)}</td><td>${money(c.abono)}</td><td>${money(c.saldo)}</td><td>${acciones}</td></tr>`;
       }).join("");
       const totalPendiente = cart.reduce((s, c) => s + Number(c.saldo || 0), 0);
@@ -2297,7 +2296,6 @@ Gracias por su compromiso y profesionalismo.`;
       animateCounter(q("#totalAbonadoCartera"), totalAbonado);
       if (q("#totalRegistros")) q("#totalRegistros").textContent = `${fmtInt(cart.length)} registros`;
       ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
-      if (soloVisual) return;
 
       document.querySelectorAll(".abonar-btn").forEach((b) => b.onclick = async function () {
         const i = Number(this.dataset.i);
