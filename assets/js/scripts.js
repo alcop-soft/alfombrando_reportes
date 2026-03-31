@@ -92,6 +92,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const normalizado = normalizarMetodoPagoGasto(raw);
     return normalizado || txt(raw) || "-";
   };
+  const METODOS_CARTERA = {
+    "1": "Efectivo",
+    "2": "Tarjeta",
+    "3": "Transferencia",
+    efectivo: "Efectivo",
+    tarjeta: "Tarjeta",
+    transferencia: "Transferencia",
+    tranferencia: "Transferencia"
+  };
+  const normalizarMetodoCartera = (raw) => {
+    const v = txt(raw);
+    if (!v) return "";
+    return METODOS_CARTERA[v] || METODOS_CARTERA[v.toLowerCase()] || "";
+  };
   const esGastoEgreso = (rawTipo) => {
     const tipo = txt(rawTipo).toLowerCase();
     if (!tipo) return false;
@@ -119,7 +133,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const qtyFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
   const fmtInt = (n) => intFmt.format(Math.round(Number(n || 0)));
   const fmtQty = (n) => qtyFmt.format(Number(n || 0));
-  const money = (n) => `$${fmtInt(n)}`;
+  const money = (n) => {
+    const valNum = Number(n || 0);
+    return valNum < 0 ? `-$${fmtInt(Math.abs(valNum))}` : `$${fmtInt(valNum)}`;
+  };
   const animateCounter = (element, value) => {
     if (!element) return;
     const target = Number(value || 0);
@@ -143,6 +160,84 @@ document.addEventListener("DOMContentLoaded", async () => {
   const getPedidoId = (row) => {
     const raw = val(row, "pedido_id", "pedidoId", "num_pedido", "numero_pedido", "numeroPedido");
     return String(raw || "").trim();
+  };
+  const totalLineaVenta = (row) => {
+    const totalCampo = Number(val(row, "total"));
+    if (Number.isFinite(totalCampo) && totalCampo > 0) return totalCampo;
+    return Number(val(row, "cantidad") || 0) * Number(val(row, "precio") || 0);
+  };
+  const normalizarAbonoVenta = (abono, total) => {
+    const totalSeguro = Math.max(Number(total || 0), 0);
+    const abonoSeguro = Math.max(Number(abono || 0), 0);
+    return Math.min(abonoSeguro, totalSeguro);
+  };
+  const agruparVentasPorPedido = (rows = []) => {
+    const grouped = new Map();
+    rows.forEach((v, idx) => {
+      const pedidoId = getPedidoId(v);
+      const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
+      const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
+      const key = pedidoId
+        ? `pedido:${pedidoId}|cliente:${clienteKey}`
+        : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
+      const cantidad = Number(val(v, "cantidad") || 0);
+      const totalLinea = totalLineaVenta(v);
+      const abono = Number(val(v, "abono") || 0);
+      const producto = String(val(v, "producto") || "").trim();
+      const descripcion = String(val(v, "descripcion", "referencia") || "").trim();
+      const metodoCartera = normalizarMetodoCartera(val(v, "metodo_cartera", "metodoCartera"));
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: val(v, "id"),
+          itemIds: [],
+          fecha: val(v, "fecha") || "-",
+          numeroRecibo: numeroRecibo || "-",
+          numeroPedido: pedidoId || "-",
+          pedidoId: pedidoId || "",
+          cliente: val(v, "cliente") || "-",
+          telefono: val(v, "telefono") || "-",
+          ubicacion: val(v, "ubicacion_cliente", "ub") || "-",
+          fechaProgramacion: val(v, "fecha_programacion", "fecha_programada", "fechaProgramada") || "-",
+          vendedor: val(v, "vendedor") || "-",
+          metodoPago: val(v, "metodo_pago", "metodoPago") || "-",
+          numeroCartera: val(v, "numero_cartera", "numeroCartera") || "-",
+          metodoCartera: metodoCartera || "-",
+          productos: [],
+          descripciones: [],
+          cantidad: 0,
+          total: 0,
+          abonoRaw: 0,
+          items: []
+        });
+      }
+
+      const g = grouped.get(key);
+      g.itemIds.push(val(v, "id"));
+      g.cantidad += cantidad;
+      g.total += totalLinea;
+      g.abonoRaw = Math.max(Number(g.abonoRaw || 0), abono);
+      if (producto && !g.productos.includes(producto)) g.productos.push(producto);
+      if (descripcion && !g.descripciones.includes(descripcion)) g.descripciones.push(descripcion);
+      if (!g.numeroCartera || g.numeroCartera === "-") g.numeroCartera = val(v, "numero_cartera", "numeroCartera") || "-";
+      if (metodoCartera) g.metodoCartera = metodoCartera;
+      g.items.push({
+        producto,
+        descripcion,
+        cantidad,
+        precio: Number(val(v, "precio") || 0),
+        subtotal: totalLinea
+      });
+    });
+
+    return Array.from(grouped.values()).map((g) => {
+      const abono = normalizarAbonoVenta(g.abonoRaw, g.total);
+      return {
+        ...g,
+        abono,
+        saldo: Math.max(Number(g.total || 0) - Number(abono || 0), 0)
+      };
+    });
   };
   const makePedidoId = () => `PED-${Date.now()}-${Math.floor(Math.random() * 900 + 100)}`;
   const asDay = (v) => String(v || "").slice(0, 10);
@@ -710,7 +805,10 @@ Gracias por su compromiso y profesionalismo.`;
     const buildPayloadItems = (pedidoId) => {
       const fecha = q("#fecha").value;
       const numeroRecibo = txt(q("#numeroRecibo")?.value);
-      const abono = Number(q("#abono").value || 0);
+      const totalPedido = carritoProductos.reduce((s, item) => s + (Number(item.cantidad || 0) * Number(item.precio || 0)), 0);
+      const abonoIngresado = Number(q("#abono").value || 0);
+      if (abonoIngresado > totalPedido) throw new Error("El abono inicial no puede superar el total del pedido.");
+      const abono = normalizarAbonoVenta(abonoIngresado, totalPedido);
       const metodoPago = q("#metodoPago").value;
       const vendedor = q("#vendedor").value;
       const cliente = q("#cliente").value;
@@ -968,76 +1066,29 @@ Gracias por su compromiso y profesionalismo.`;
   }
   function renderVentas() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
-    const grupos = new Map();
-    st.ventas.forEach((v, idx) => {
-      const pedidoId = getPedidoId(v);
-      const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
-      const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
-      const key = pedidoId
-        ? `pedido:${pedidoId}|cliente:${clienteKey}`
-        : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
-      const cantidad = Number(val(v, "cantidad") || 0);
-      const precio = Number(val(v, "precio") || 0);
-      const subtotal = cantidad * precio;
-      const abono = Number(val(v, "abono") || 0);
-      const producto = String(val(v, "producto") || "").trim();
-      const descripcion = String(val(v, "descripcion", "referencia") || "").trim();
-
-      if (!grupos.has(key)) {
-        grupos.set(key, {
-          id: val(v, "id"),
-          fecha: val(v, "fecha") || "-",
-          numeroRecibo: numeroRecibo || "-",
-          numeroPedido: pedidoId || "-",
-          pedidoId: pedidoId || "",
-          productos: [],
-          descripciones: [],
-          cantidad: 0,
-          total: 0,
-          abono: abono,
-          metodoPago: val(v, "metodo_pago", "metodoPago") || "-",
-          vendedor: val(v, "vendedor") || "-",
-          cliente: val(v, "cliente") || "-",
-          telefono: val(v, "telefono") || "-",
-          ubicacion: val(v, "ubicacion_cliente", "ub") || "-",
-          fechaProgramacion: val(v, "fecha_programacion", "fecha_programada", "fechaProgramada") || "-",
-          items: []
-        });
-      }
-
-      const g = grupos.get(key);
-      g.cantidad += cantidad;
-      g.total += subtotal;
-      g.abono = Math.max(Number(g.abono || 0), abono);
-      if (producto && !g.productos.includes(producto)) g.productos.push(producto);
-      if (descripcion && !g.descripciones.includes(descripcion)) g.descripciones.push(descripcion);
-      g.items.push({ producto, descripcion, cantidad, precio, subtotal });
-    });
-
-    const ventasVista = Array.from(grupos.values());
+    const ventasVista = agruparVentasPorPedido(st.ventas);
     ventasVistaCache = ventasVista;
     body.innerHTML = ventasVista.map((v, idx) => {
-      const saldo = v.total - Number(v.abono || 0);
       const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
       const descTxt = v.descripciones.length > 1 ? `${v.descripciones[0]} (+${v.descripciones.length - 1})` : (v.descripciones[0] || "-");
       const precioProm = v.cantidad > 0 ? (v.total / v.cantidad) : 0;
       const btnEditar = esAdmin()
         ? `<button type="button" class="btn btn-outline-primary edit-venta-btn" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button>`
         : "";
-      return `<tr class="${saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
+      return `<tr class="${v.saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
     }).join("");
 
     const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
-    const contado = ventasVista.reduce((s, v) => s + (Number(v.abono || 0) >= Number(v.total || 0) ? Number(v.total || 0) : 0), 0);
-    const credito = ventasVista.reduce((s, v) => s + Math.max(Number(v.total || 0) - Number(v.abono || 0), 0), 0);
+    const cobrado = ventasVista.reduce((s, v) => s + Number(v.abono || 0), 0);
+    const credito = ventasVista.reduce((s, v) => s + Number(v.saldo || 0), 0);
     const ym = today().slice(0, 7);
     const totalMes = ventasVista.reduce((s, v) => s + (String(v.fecha || "").slice(0, 7) === ym ? Number(v.total || 0) : 0), 0);
     if (q("#ventas")) q("#ventas").textContent = fmtInt(ventasVista.length);
     if (q("#total")) q("#total").textContent = money(total);
-    if (q("#totalContado")) q("#totalContado").textContent = money(contado);
+    if (q("#totalContado")) q("#totalContado").textContent = money(cobrado);
     if (q("#totalCredito")) q("#totalCredito").textContent = money(credito);
     animateCounter(q("#ventasKpiTotalVendido"), total);
-    animateCounter(q("#ventasKpiContado"), contado);
+    animateCounter(q("#ventasKpiContado"), cobrado);
     animateCounter(q("#ventasKpiCobrar"), credito);
     animateCounter(q("#ventasKpiMes"), totalMes);
     ensureTablePagination(q("#datatablesSimple"), "ventas", 10);
@@ -1272,7 +1323,7 @@ Gracias por su compromiso y profesionalismo.`;
   }
 
   async function modGastos() {
-    await load("gastos");
+    await Promise.all([load("gastos"), load("ventas")]);
     const form = q("#dataForm"), body = q("#datatablesSimple tbody");
     if (!form || !body) return;
     const tipoSelect = q("#tipo");
@@ -1463,30 +1514,19 @@ Gracias por su compromiso y profesionalismo.`;
     }
     if (q("#gastosFiltroActualLabel")) q("#gastosFiltroActualLabel").textContent = range.label;
     const rowsFiltrados = rows.filter((g) => inRangeGasto(fechaMovimientoGasto(g), range.from, range.to));
-
-    const hoy = nowLocalDateTime().slice(0, 10);
-    const gastosGenerales = rowsFiltrados.reduce((s, g) => s + (esGastoEgreso(val(g, "tipo")) ? Number(val(g, "monto") || 0) : 0), 0);
-
-    const days = [];
-    for (let i = 0; i < 7; i += 1) {
-      const d = new Date(`${hoy}T12:00:00`);
-      d.setDate(d.getDate() - i);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      days.push(`${y}-${m}-${day}`);
-    }
-    const gastosSemana = rowsFiltrados.reduce((s, g) => {
-      const f = fechaISO(fechaMovimientoGasto(g));
-      if (!days.includes(f)) return s;
+    const gastosEgreso = rowsFiltrados.reduce((s, g) => {
       if (!esGastoEgreso(val(g, "tipo"))) return s;
       return s + Number(val(g, "monto") || 0);
     }, 0);
-    const promDia = gastosSemana / 7;
+    const ventasFiltradas = (st.ventas || []).filter((v) => inRangeGasto(val(v, "fecha"), range.from, range.to));
+    const carteraFiltrada = agruparVentasPorPedido(ventasFiltradas);
+    const carteraPendiente = carteraFiltrada.reduce((s, v) => s + Number(v.saldo || 0), 0);
+    const carteraPagada = carteraFiltrada.reduce((s, v) => s + Number(v.abono || 0), 0);
+    const saldoNeto = carteraPagada - gastosEgreso;
 
-    animateCounter(q("#gastosKpiHoy"), gastosGenerales);
-    animateCounter(q("#gastosKpiSemana"), gastosSemana);
-    animateCounter(q("#gastosKpiPromDia"), promDia);
+    animateCounter(q("#gastosKpiHoy"), carteraPendiente);
+    animateCounter(q("#gastosKpiSemana"), carteraPagada);
+    animateCounter(q("#gastosKpiPromDia"), saldoNeto);
 
     const porTipo = {};
     const porDescripcion = {};
@@ -2197,58 +2237,29 @@ Gracias por su compromiso y profesionalismo.`;
     const tb = q("#carteraTabla"), msg = q("#mensajeVacio");
     const buscador = q("#buscadorCartera"), filtroSaldo = q("#filtroSaldo"), filtroModo = q("#filtroModoCartera"), btnExportar = q("#btnExportarCartera");
     if (!tb) return;
-
-    const grouped = new Map();
-    st.ventas.forEach((v, idx) => {
-      const pedidoId = getPedidoId(v);
-      const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
-      const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
-      const key = pedidoId
-        ? `pedido:${pedidoId}|cliente:${clienteKey}`
-        : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
-      const total = Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
-      const abono = Number(val(v, "abono") || 0);
-      const producto = String(val(v, "producto") || "").trim();
-      const descripcion = String(val(v, "descripcion", "referencia") || "").trim();
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          id: val(v, "id"),
-          itemIds: [],
-          cliente: val(v, "cliente") || "-",
-          telefono: val(v, "telefono") || "-",
-          productos: [],
-          descripciones: [],
-          fecha: val(v, "fecha") || "-",
-          numeroPedido: pedidoId || "-",
-          numeroCartera: val(v, "numero_cartera", "numeroCartera") || "-",
-          total: 0,
-          ab: 0
-        });
-      }
-      const g = grouped.get(key);
-      g.itemIds.push(val(v, "id"));
-      g.total += total;
-      g.ab = Math.max(Number(g.ab || 0), abono);
-      if (producto && !g.productos.includes(producto)) g.productos.push(producto);
-      if (descripcion && !g.descripciones.includes(descripcion)) g.descripciones.push(descripcion);
-      if (!g.numeroCartera || g.numeroCartera === "-") g.numeroCartera = val(v, "numero_cartera", "numeroCartera") || "-";
-    });
-    const base = Array.from(grouped.values()).map((g) => ({ ...g, saldo: g.total - g.ab }));
+    const base = agruparVentasPorPedido(st.ventas || []);
 
     const applyFilters = () => {
       const term = String(buscador?.value || "").toLowerCase().trim();
       const saldoRule = String(filtroSaldo?.value || "todos");
       const modo = String(filtroModo?.value || "pendientes");
-      return base.filter((c) => {
+      return base.filter((raw) => {
+        const metodoCarteraRaw = txt(raw.metodoCartera);
+        const c = {
+          ...raw,
+          numeroCartera: raw.numeroCartera || "-",
+          metodoCartera: normalizarMetodoCartera(raw.metodoCartera) || metodoCarteraRaw || "-"
+        };
         const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
         const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
-        const hayTexto = !term || [c.cliente, c.telefono, productoTxt, descripcionTxt, c.numeroPedido, c.numeroCartera]
+        const hayTexto = !term || [c.cliente, c.telefono, productoTxt, descripcionTxt, c.numeroPedido, c.numeroCartera, c.metodoCartera]
           .join(" ").toLowerCase().includes(term);
-        const cumpleModo = modo === "abonos" ? c.ab > 0 : c.saldo > 0;
+        const cumpleModo = modo === "abonos" ? c.abono > 0 : c.saldo > 0;
+        const valorFiltro = modo === "abonos" ? c.abono : c.saldo;
         let haySaldo = true;
-        if (saldoRule === "mayor-1000") haySaldo = c.saldo > 1000;
-        else if (saldoRule === "mayor-500") haySaldo = c.saldo > 500;
-        else if (saldoRule === "menor-500") haySaldo = c.saldo <= 500;
+        if (saldoRule === "mayor-1000") haySaldo = valorFiltro > 1000;
+        else if (saldoRule === "mayor-500") haySaldo = valorFiltro > 500;
+        else if (saldoRule === "menor-500") haySaldo = valorFiltro <= 500;
         return hayTexto && haySaldo && cumpleModo;
       });
     };
@@ -2262,7 +2273,7 @@ Gracias por su compromiso y profesionalismo.`;
         if (msg) msg.style.display = "";
         animateCounter(q("#totalCartera"), 0);
         animateCounter(q("#clientesActivos"), 0);
-        animateCounter(q("#promedioCliente"), 0);
+        animateCounter(q("#totalAbonadoCartera"), 0);
         if (q("#totalRegistros")) q("#totalRegistros").textContent = "0 registros";
         ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
         return;
@@ -2272,16 +2283,18 @@ Gracias por su compromiso y profesionalismo.`;
       tb.innerHTML = cart.map((c, i) => {
         const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
         const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
+        const metodoSeleccionado = normalizarMetodoCartera(c.metodoCartera);
         const acciones = soloVisual
           ? '<span class="text-muted small">Solo visual</span>'
-          : `<div class="d-flex flex-column flex-md-row gap-2"><input type="number" class="abono-input form-control form-control-sm" min="0.01" step="0.01" data-i="${i}" placeholder="Valor"><input type="text" class="abono-cartera-input form-control form-control-sm" data-i="${i}" placeholder="No. cartera"><button class="btn btn-success btn-sm abonar-btn" data-id="${c.id}" data-i="${i}">Abonar</button></div>`;
-        return `<tr><td>${c.cliente}</td><td>${c.telefono}</td><td>${productoTxt}</td><td>${descripcionTxt}</td><td>${c.fecha}</td><td>${c.numeroPedido}</td><td>${c.numeroCartera || "-"}</td><td>${money(c.total)}</td><td>${money(c.ab)}</td><td>${money(c.saldo)}</td><td>${acciones}</td></tr>`;
+          : `<div class="d-flex flex-column flex-md-row gap-2"><input type="number" class="abono-input form-control form-control-sm" min="0.01" step="0.01" data-i="${i}" placeholder="Valor"><input type="text" class="abono-cartera-input form-control form-control-sm" data-i="${i}" placeholder="No. cartera" value="${c.numeroCartera && c.numeroCartera !== "-" ? c.numeroCartera : ""}"><select class="metodo-cartera-select form-select form-select-sm" data-i="${i}"><option value="">Metodo</option><option value="Transferencia" ${metodoSeleccionado === "Transferencia" ? "selected" : ""}>Transferencia</option><option value="Tarjeta" ${metodoSeleccionado === "Tarjeta" ? "selected" : ""}>Tarjeta</option><option value="Efectivo" ${metodoSeleccionado === "Efectivo" ? "selected" : ""}>Efectivo</option></select><button class="btn btn-success btn-sm abonar-btn" data-id="${c.id}" data-i="${i}">Abonar</button></div>`;
+        return `<tr class="${c.saldo <= 0 ? "table-success" : ""}"><td>${c.cliente}</td><td>${c.telefono}</td><td>${productoTxt}</td><td>${descripcionTxt}</td><td>${c.fecha}</td><td>${c.numeroPedido}</td><td>${c.numeroCartera || "-"}</td><td>${c.metodoCartera || "-"}</td><td>${money(c.total)}</td><td>${money(c.abono)}</td><td>${money(c.saldo)}</td><td>${acciones}</td></tr>`;
       }).join("");
-      const total = cart.reduce((s, c) => s + c.saldo, 0);
-      const clientes = new Set(cart.map((c) => val(c, "cliente") || "")).size;
-      animateCounter(q("#totalCartera"), total);
-      animateCounter(q("#clientesActivos"), clientes);
-      animateCounter(q("#promedioCliente"), clientes ? total / clientes : 0);
+      const totalPendiente = cart.reduce((s, c) => s + Number(c.saldo || 0), 0);
+      const totalAbonado = cart.reduce((s, c) => s + Number(c.abono || 0), 0);
+      const clientesConSaldo = new Set(cart.filter((c) => Number(c.saldo || 0) > 0).map((c) => val(c, "cliente") || "")).size;
+      animateCounter(q("#totalCartera"), totalPendiente);
+      animateCounter(q("#clientesActivos"), clientesConSaldo);
+      animateCounter(q("#totalAbonadoCartera"), totalAbonado);
       if (q("#totalRegistros")) q("#totalRegistros").textContent = `${fmtInt(cart.length)} registros`;
       ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
       if (soloVisual) return;
@@ -2290,18 +2303,31 @@ Gracias por su compromiso y profesionalismo.`;
         const i = Number(this.dataset.i);
         const inp = document.querySelector(`input.abono-input[data-i="${i}"]`);
         const carteraInp = document.querySelector(`input.abono-cartera-input[data-i="${i}"]`);
+        const metodoInp = document.querySelector(`select.metodo-cartera-select[data-i="${i}"]`);
         const abono = Number(inp?.value || 0);
         const numeroCartera = txt(carteraInp?.value);
+        const metodoCartera = normalizarMetodoCartera(metodoInp?.value);
         if (!abono || abono <= 0) return alertx("Debes ingresar un valor de abono mayor a cero.", "warning");
         if (abono > cart[i].saldo) return alertx("El valor del abono no puede superar el saldo pendiente.", "warning");
         if (!numeroCartera) return alertx("Debes ingresar el numero de cartera para registrar el abono.", "warning");
+        if (!metodoCartera) return alertx("Debes seleccionar el metodo de pago para registrar el abono.", "warning");
         try {
-          const nuevoAbono = cart[i].ab + abono;
+          const nuevoAbono = normalizarAbonoVenta(Number(cart[i].abono || 0) + abono, cart[i].total);
           const ids = (cart[i].itemIds || []).filter(Boolean);
           if (!ids.length) throw new Error("No se encontraron items del pedido");
-          const { error } = await sb.from(t.ventas).update({ abono: nuevoAbono, numero_cartera: numeroCartera }).in("id", ids);
+          const { error } = await sb.from(t.ventas).update({
+            abono: nuevoAbono,
+            numero_cartera: numeroCartera,
+            metodo_cartera: metodoCartera
+          }).in("id", ids);
           if (error) throw error;
-          logHistory("ventas", "abono", { ids, abono, abono_total_pedido: nuevoAbono, numero_cartera: numeroCartera });
+          logHistory("ventas", "abono", {
+            ids,
+            abono,
+            abono_total_pedido: nuevoAbono,
+            numero_cartera: numeroCartera,
+            metodo_cartera: metodoCartera
+          });
           await load("ventas");
           alertx("El abono fue registrado correctamente.", "success");
           await modCartera();
@@ -2327,7 +2353,7 @@ Gracias por su compromiso y profesionalismo.`;
       btnExportar.addEventListener("click", () => {
         const cart = applyFilters();
         if (!cart.length) return alertx("No hay datos para exportar con los filtros actuales.", "warning");
-        const rows = [["Cliente", "Telefono", "Producto", "Descripcion", "Fecha", "Numero Pedido Venta", "Numero Cartera", "Total", "Abono", "Saldo"]];
+        const rows = [["Cliente", "Telefono", "Producto", "Descripcion", "Fecha", "Numero Pedido Venta", "Numero Cartera", "Metodo Cartera", "Total", "Abono", "Saldo"]];
         cart.forEach((c) => {
           const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
           const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
@@ -2339,8 +2365,9 @@ Gracias por su compromiso y profesionalismo.`;
           c.fecha || "",
           c.numeroPedido || "",
           c.numeroCartera || "",
+          c.metodoCartera || "",
           String(c.total),
-          String(c.ab),
+          String(c.abono),
           String(c.saldo)
           ]);
         });
@@ -2363,9 +2390,15 @@ Gracias por su compromiso y profesionalismo.`;
       btnResumen.addEventListener("click", () => {
         const cart = applyFilters();
         if (!cart.length) return alertx("No hay datos para generar el resumen con los filtros actuales.", "warning");
-        const total = cart.reduce((s, c) => s + c.saldo, 0);
-        const clientes = new Set(cart.map((c) => val(c, "cliente") || "")).size;
-        const promedio = clientes ? total / clientes : 0;
+        const totalPendiente = cart.reduce((s, c) => s + Number(c.saldo || 0), 0);
+        const totalAbonado = cart.reduce((s, c) => s + Number(c.abono || 0), 0);
+        const clientesConSaldo = new Set(cart.filter((c) => Number(c.saldo || 0) > 0).map((c) => val(c, "cliente") || "")).size;
+        const promedio = clientesConSaldo ? totalPendiente / clientesConSaldo : 0;
+        const abonoPorMetodo = { Efectivo: 0, Tarjeta: 0, Transferencia: 0 };
+        cart.forEach((c) => {
+          const metodo = normalizarMetodoCartera(c.metodoCartera);
+          if (metodo) abonoPorMetodo[metodo] = (abonoPorMetodo[metodo] || 0) + Number(c.abono || 0);
+        });
         const html = `
           <div class="table-responsive">
             <table class="table table-sm table-bordered mb-3">
@@ -2373,9 +2406,10 @@ Gracias por su compromiso y profesionalismo.`;
                 <tr><th>Concepto</th><th>Valor</th></tr>
               </thead>
               <tbody>
-                <tr><td>Total por Cobrar</td><td>${money(total)}</td></tr>
-                <tr><td>Clientes con Deuda</td><td>${fmtInt(clientes)}</td></tr>
-                <tr><td>Deuda Promedio por Cliente</td><td>${money(promedio)}</td></tr>
+                <tr><td>Total por Cobrar</td><td>${money(totalPendiente)}</td></tr>
+                <tr><td>Total Cobrado</td><td>${money(totalAbonado)}</td></tr>
+                <tr><td>Clientes con Deuda</td><td>${fmtInt(clientesConSaldo)}</td></tr>
+                <tr><td>Saldo Promedio por Cliente</td><td>${money(promedio)}</td></tr>
               </tbody>
             </table>
             <div class="row g-2">
@@ -2394,10 +2428,11 @@ Gracias por su compromiso y profesionalismo.`;
               <div class="col-md-6">
                 <div class="card bg-light">
                   <div class="card-body">
-                    <h6 class="card-title">Distribucion por Abono</h6>
+                    <h6 class="card-title">Abonos por Metodo</h6>
                     <ul class="list-unstyled mb-0">
-                      <li>Con Abono: ${fmtInt(cart.filter(c => c.ab > 0).length)}</li>
-                      <li>Sin Abono: ${fmtInt(cart.filter(c => c.ab === 0).length)}</li>
+                      <li>Transferencia: ${money(abonoPorMetodo.Transferencia)}</li>
+                      <li>Tarjeta: ${money(abonoPorMetodo.Tarjeta)}</li>
+                      <li>Efectivo: ${money(abonoPorMetodo.Efectivo)}</li>
                     </ul>
                   </div>
                 </div>
@@ -2424,44 +2459,6 @@ Gracias por su compromiso y profesionalismo.`;
   }
 
   async function modDashboard() {
-    const sumVenta = (v) => {
-      const totalCampo = Number(val(v, "total"));
-      if (Number.isFinite(totalCampo) && totalCampo > 0) return totalCampo;
-      return Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0);
-    };
-    const agruparVentas = (rows) => {
-      const map = new Map();
-      rows.forEach((v, idx) => {
-        const pedidoId = getPedidoId(v);
-        const numeroRecibo = String(val(v, "numero_recibo", "numeroRecibo") || "").trim();
-        const clienteKey = String(val(v, "cliente") || "").trim().toLowerCase();
-        const key = pedidoId
-          ? `pedido:${pedidoId}|cliente:${clienteKey}`
-          : (numeroRecibo ? `recibo:${numeroRecibo}|cliente:${clienteKey}` : `item:${val(v, "id") || idx}`);
-        const total = sumVenta(v);
-        const abono = Number(val(v, "abono") || 0);
-        const cantidad = Number(val(v, "cantidad") || 0);
-        const producto = String(val(v, "producto") || "").trim();
-
-        if (!map.has(key)) {
-          map.set(key, {
-            fecha: val(v, "fecha") || "-",
-            cliente: val(v, "cliente") || "-",
-            vendedor: val(v, "vendedor") || "Sin vendedor",
-            productos: [],
-            cantidad: 0,
-            total: 0,
-            abono: 0
-          });
-        }
-        const g = map.get(key);
-        g.total += total;
-        g.cantidad += cantidad;
-        g.abono = Math.max(Number(g.abono || 0), abono);
-        if (producto && !g.productos.includes(producto)) g.productos.push(producto);
-      });
-      return Array.from(map.values()).map((x) => ({ ...x, saldo: Math.max(Number(x.total || 0) - Number(x.abono || 0), 0) }));
-    };
     const inRange = (fecha, from, to) => {
       const d = asDay(fecha);
       if (!d || d === "-") return false;
@@ -2488,7 +2485,7 @@ Gracias por su compromiso y profesionalismo.`;
     const ventas = [...(st.ventas || [])];
     const instalaciones = [...(st.instalacion || [])];
 
-    const ventasAgrupadasAll = agruparVentas(ventas);
+    const ventasAgrupadasAll = agruparVentasPorPedido(ventas);
     const hoy = today();
     const mesActual = hoy.slice(0, 7);
 
@@ -2504,7 +2501,7 @@ Gracias por su compromiso y profesionalismo.`;
       if (q("#dashFiltroActualLabel")) q("#dashFiltroActualLabel").textContent = range.label;
 
       const ventasFiltradas = ventas.filter((v) => inRange(val(v, "fecha"), range.from, range.to));
-      const ventasAgrupadas = agruparVentas(ventasFiltradas);
+      const ventasAgrupadas = agruparVentasPorPedido(ventasFiltradas);
       const carteraPendiente = ventasAgrupadas.reduce((s, v) => s + Number(v.saldo || 0), 0);
       const pedidosInstalar = instalaciones.filter((i) => {
         const estado = String(val(i, "estado") || "").toLowerCase();
@@ -2543,7 +2540,7 @@ Gracias por su compromiso y profesionalismo.`;
       const cantidadProducto = {};
       ventasFiltradas.forEach((v) => {
         const p = canonProducto(val(v, "producto"));
-        const totalLinea = Number(val(v, "total") || (Number(val(v, "cantidad") || 0) * Number(val(v, "precio") || 0)));
+        const totalLinea = totalLineaVenta(v);
         const cantLinea = Number(val(v, "cantidad") || 0);
         ingresosProducto[p] = (ingresosProducto[p] || 0) + totalLinea;
         cantidadProducto[p] = (cantidadProducto[p] || 0) + cantLinea;
@@ -2664,7 +2661,11 @@ Gracias por su compromiso y profesionalismo.`;
   function showDay() {
     const h = today();
     if (vistActual.startsWith("ventas")) {
-      const rows = st.ventas.filter((x) => asDay(val(x, "fecha")) === h).map((x) => `<tr><td>${val(x, "fecha") || "-"}</td><td>${val(x, "producto") || "-"}</td><td>${money(Number(val(x, "cantidad") || 0) * Number(val(x, "precio") || 0))}</td></tr>`).join("") || '<tr><td colspan="3" class="text-center">No hay ventas para hoy</td></tr>';
+      const ventasHoy = agruparVentasPorPedido(st.ventas.filter((x) => asDay(val(x, "fecha")) === h));
+      const rows = ventasHoy.map((x) => {
+        const productoTxt = x.productos.length > 1 ? `${x.productos[0]} (+${x.productos.length - 1})` : (x.productos[0] || "-");
+        return `<tr><td>${x.fecha || "-"}</td><td>${productoTxt}</td><td>${money(x.total)}</td></tr>`;
+      }).join("") || '<tr><td colspan="3" class="text-center">No hay ventas para hoy</td></tr>';
       if (q("#ventasDiaBody")) q("#ventasDiaBody").innerHTML = rows; if (q("#tablaVentas")) q("#tablaVentas").style.display = "none"; if (q("#ventasDia")) q("#ventasDia").style.display = "";
     }
     if (vistActual.startsWith("instalacion")) {
