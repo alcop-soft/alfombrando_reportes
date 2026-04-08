@@ -106,6 +106,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!v) return "";
     return METODOS_CARTERA[v] || METODOS_CARTERA[v.toLowerCase()] || "";
   };
+  const METODOS_PAGO_VENTA = {
+    "1": "Efectivo",
+    "2": "Tarjeta",
+    "3": "Transferencia",
+    efectivo: "Efectivo",
+    tarjeta: "Tarjeta",
+    transferencia: "Transferencia",
+    tranferencia: "Transferencia"
+  };
+  const normalizarMetodoPagoVenta = (raw) => {
+    const v = txt(raw);
+    if (!v) return "";
+    return METODOS_PAGO_VENTA[v] || METODOS_PAGO_VENTA[v.toLowerCase()] || v;
+  };
   const esGastoEgreso = (rawTipo) => {
     const tipo = txt(rawTipo).toLowerCase();
     if (!tipo) return false;
@@ -200,7 +214,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ubicacion: val(v, "ubicacion_cliente", "ub") || "-",
           fechaProgramacion: val(v, "fecha_programacion", "fecha_programada", "fechaProgramada") || "-",
           vendedor: val(v, "vendedor") || "-",
-          metodoPago: val(v, "metodo_pago", "metodoPago") || "-",
+          metodoPago: normalizarMetodoPagoVenta(val(v, "metodo_pago", "metodoPago")) || "-",
           numeroCartera: val(v, "numero_cartera", "numeroCartera") || "-",
           metodoCartera: metodoCartera || "-",
           productos: [],
@@ -267,10 +281,59 @@ document.addEventListener("DOMContentLoaded", async () => {
     const day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
   };
-  const inRangeGasto = (fecha, from, to) => {
+  const inRangeFecha = (fecha, from, to) => {
     const d = fechaISO(fecha);
     if (!d || d === "-") return false;
     return (!from || d >= from) && (!to || d <= to);
+  };
+  const inRangeGasto = (fecha, from, to) => inRangeFecha(fecha, from, to);
+  const monthBounds = (monthISO) => {
+    const raw = String(monthISO || "").trim();
+    const m = raw.match(/^(\d{4})-(\d{2})$/);
+    if (!m) return { from: "", to: "" };
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const from = `${m[1]}-${m[2]}-01`;
+    const last = new Date(year, month, 0).getDate();
+    const to = `${m[1]}-${m[2]}-${String(last).padStart(2, "0")}`;
+    return { from, to };
+  };
+  const formatMonthLabel = (monthISO) => {
+    const [year, month] = String(monthISO || "").split("-");
+    if (!year || !month) return monthISO || "";
+    return `${month}/${year}`;
+  };
+  const rangeByFiltroVentas = () => {
+    const periodo = String(q("#ventasFiltroPeriodo")?.value || "todos");
+    const hoy = today();
+    const mesActual = hoy.slice(0, 7);
+    if (periodo === "todos") return { from: "", to: "", label: "Todos los meses" };
+    if (periodo === "mes_actual") {
+      const range = monthBounds(mesActual);
+      return { ...range, label: `Mes actual (${formatMonthLabel(mesActual)})` };
+    }
+    if (periodo === "mes_anterior") {
+      const ref = new Date(`${mesActual}-01T00:00:00`);
+      ref.setMonth(ref.getMonth() - 1);
+      const mes = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, "0")}`;
+      const range = monthBounds(mes);
+      return { ...range, label: `Mes anterior (${formatMonthLabel(mes)})` };
+    }
+    if (periodo === "mes_especifico") {
+      const mes = String(q("#ventasFiltroMes")?.value || mesActual);
+      const range = monthBounds(mes);
+      return { ...range, label: `Mes ${formatMonthLabel(mes)}` };
+    }
+    const from = q("#ventasFechaDesde")?.value || "";
+    const to = q("#ventasFechaHasta")?.value || "";
+    return { from, to, label: from && to ? `Personalizado (${from} a ${to})` : "Rango personalizado" };
+  };
+  const toggleCustomRangeVentas = () => {
+    const periodo = String(q("#ventasFiltroPeriodo")?.value || "todos");
+    const showMonth = periodo === "mes_especifico";
+    const showCustom = periodo === "custom";
+    document.querySelectorAll(".ventas-month-range").forEach((el) => el.classList.toggle("d-none", !showMonth));
+    document.querySelectorAll(".ventas-custom-range").forEach((el) => el.classList.toggle("d-none", !showCustom));
   };
   const fechaMovimientoGasto = (row) => val(row, "fecha_hora", "fechaHora", "fecha", "created_at");
   const rangeByFiltroGastos = () => {
@@ -1058,6 +1121,31 @@ Gracias por su compromiso y profesionalismo.`;
       }, { passive: true });
       ventasCreateInstClickBound = true;
     }
+    const filtroPeriodoVentas = q("#ventasFiltroPeriodo");
+    const filtroMesVentas = q("#ventasFiltroMes");
+    const btnAplicarFiltroVentas = q("#ventasAplicarFiltro");
+    if (filtroMesVentas && !filtroMesVentas.value) filtroMesVentas.value = today().slice(0, 7);
+    if (filtroPeriodoVentas && !filtroPeriodoVentas.dataset.bound) {
+      filtroPeriodoVentas.addEventListener("change", () => {
+        if (String(filtroPeriodoVentas.value) === "mes_especifico" && filtroMesVentas && !filtroMesVentas.value) {
+          filtroMesVentas.value = today().slice(0, 7);
+        }
+        toggleCustomRangeVentas();
+        if (String(filtroPeriodoVentas.value) !== "custom") renderVentas();
+      });
+      filtroPeriodoVentas.dataset.bound = "1";
+    }
+    if (filtroMesVentas && !filtroMesVentas.dataset.bound) {
+      filtroMesVentas.addEventListener("change", () => {
+        if (String(q("#ventasFiltroPeriodo")?.value || "") === "mes_especifico") renderVentas();
+      });
+      filtroMesVentas.dataset.bound = "1";
+    }
+    if (btnAplicarFiltroVentas && !btnAplicarFiltroVentas.dataset.bound) {
+      btnAplicarFiltroVentas.addEventListener("click", () => renderVentas());
+      btnAplicarFiltroVentas.dataset.bound = "1";
+    }
+    toggleCustomRangeVentas();
     setSubmitMode(false);
     if (vistActual === "ventas-form") loadEditState();
     if (!modoEdicion) aplicarPrefillDesdeVisita();
@@ -1066,23 +1154,37 @@ Gracias por su compromiso y profesionalismo.`;
   }
   function renderVentas() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
-    const ventasVista = agruparVentasPorPedido(st.ventas);
+    const range = rangeByFiltroVentas();
+    if (range.from && range.to && range.from > range.to) {
+      alertx("El rango personalizado no es valido. Verifica la fecha inicial y final.", "warning");
+      return;
+    }
+    if (q("#ventasFiltroActualLabel")) q("#ventasFiltroActualLabel").textContent = range.label;
+    if (q("#ventasKpiMesLabel")) q("#ventasKpiMesLabel").textContent = `Ventas (${range.label})`;
+    const ventasVista = agruparVentasPorPedido(st.ventas).filter((v) => inRangeFecha(v.fecha, range.from, range.to));
     ventasVistaCache = ventasVista;
-    body.innerHTML = ventasVista.map((v, idx) => {
-      const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
-      const descTxt = v.descripciones.length > 1 ? `${v.descripciones[0]} (+${v.descripciones.length - 1})` : (v.descripciones[0] || "-");
-      const precioProm = v.cantidad > 0 ? (v.total / v.cantidad) : 0;
-      const btnEditar = esAdmin()
-        ? `<button type="button" class="btn btn-outline-primary edit-venta-btn" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button>`
-        : "";
-      return `<tr class="${v.saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
-    }).join("");
+    body.innerHTML = ventasVista.length
+      ? ventasVista.map((v, idx) => {
+        const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
+        const descTxt = v.descripciones.length > 1 ? `${v.descripciones[0]} (+${v.descripciones.length - 1})` : (v.descripciones[0] || "-");
+        const precioProm = v.cantidad > 0 ? (v.total / v.cantidad) : 0;
+        const btnEditar = esAdmin()
+          ? `<button type="button" class="btn btn-outline-primary edit-venta-btn" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button>`
+          : "";
+        return `<tr class="${v.saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
+      }).join("")
+      : '<tr><td colspan="16" class="text-center text-muted">Sin ventas en el periodo seleccionado</td></tr>';
 
     const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
     const cobrado = ventasVista.reduce((s, v) => s + Number(v.abono || 0), 0);
     const credito = ventasVista.reduce((s, v) => s + Number(v.saldo || 0), 0);
-    const ym = today().slice(0, 7);
-    const totalMes = ventasVista.reduce((s, v) => s + (String(v.fecha || "").slice(0, 7) === ym ? Number(v.total || 0) : 0), 0);
+    const totalPorMetodo = { Efectivo: 0, Tarjeta: 0, Transferencia: 0 };
+    ventasVista.forEach((v) => {
+      const metodo = normalizarMetodoPagoVenta(v.metodoPago);
+      if (Object.prototype.hasOwnProperty.call(totalPorMetodo, metodo)) {
+        totalPorMetodo[metodo] += Number(v.total || 0);
+      }
+    });
     if (q("#ventas")) q("#ventas").textContent = fmtInt(ventasVista.length);
     if (q("#total")) q("#total").textContent = money(total);
     if (q("#totalContado")) q("#totalContado").textContent = money(cobrado);
@@ -1090,7 +1192,10 @@ Gracias por su compromiso y profesionalismo.`;
     animateCounter(q("#ventasKpiTotalVendido"), total);
     animateCounter(q("#ventasKpiContado"), cobrado);
     animateCounter(q("#ventasKpiCobrar"), credito);
-    animateCounter(q("#ventasKpiMes"), totalMes);
+    animateCounter(q("#ventasKpiMes"), total);
+    animateCounter(q("#ventasMetodoEfectivo"), totalPorMetodo.Efectivo);
+    animateCounter(q("#ventasMetodoTarjeta"), totalPorMetodo.Tarjeta);
+    animateCounter(q("#ventasMetodoTransferencia"), totalPorMetodo.Transferencia);
     ensureTablePagination(q("#datatablesSimple"), "ventas", 10);
   }
 
