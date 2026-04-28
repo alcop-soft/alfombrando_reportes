@@ -1,5 +1,5 @@
-const DEFAULT_SUPABASE_URL = "https://ipohotnnmnrjlywvalud.supabase.co";
-const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlwb2hvdG5ubW5yamx5d3ZhbHVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MjMzNTYsImV4cCI6MjA4Njk5OTM1Nn0.DWvgMJ-_pFZ2vid8EDopKdjNOMRnCxd07fsihGmi-20";
+const DEFAULT_SUPABASE_URL = "https://dsyqekrydoprzaapupxs.supabase.co";
+const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzeXFla3J5ZG9wcnphYXB1cHhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMTkyODcsImV4cCI6MjA5Mjg5NTI4N30.2H3My7YRbNNQVZf5VAfZDjRqFlkBGcaAwBb9p5jktHw";
 const externalConfig = window.SUPABASE_CONFIG || {};
 const SUPABASE_URL = String(window.SUPABASE_URL || externalConfig.url || DEFAULT_SUPABASE_URL).trim();
 const SUPABASE_ANON_KEY = String(window.SUPABASE_ANON_KEY || externalConfig.anonKey || DEFAULT_SUPABASE_ANON_KEY).trim();

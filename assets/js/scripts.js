@@ -391,7 +391,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Titulo por defecto
     return s.split(" ").map((w) => w ? `${w[0].toUpperCase()}${w.slice(1)}` : "").join(" ");
   };
-  const chartPalette = ["#1d4ed8", "#0f766e", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#65a30d", "#ea580c", "#d97706", "#be123c"];
+  const chartPalette = ["#30343b", "#58738f", "#b08b59", "#8b5d4b", "#6f6079", "#9a907f", "#495260", "#c39d69", "#7b838c", "#a66d5c"];
   const numeroInstalador = "3106128451";
   const abrirWhatsApp = (numero, mensaje) => {
     const numLimpio = String(numero || "").replace(/\D/g, "");
@@ -401,7 +401,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const mensajeCliente = (cliente, fecha, ubicacion, producto) => {
     return `Hola ${cliente}
 
-Le confirmamos que su instalación ha sido programada exitosamente con **Alcop**.
+Le confirmamos que su instalación ha sido programada exitosamente con nuestro equipo.
 
 Fecha: ${fecha}  
 Direccion: ${ubicacion}  
@@ -409,10 +409,10 @@ Producto/Servicio: ${producto}
 
 Nuestro equipo se comunicará con usted el día anterior a la instalación para confirmar la hora exacta y resolver cualquier duda.
 
-Gracias por confiar en **Alcop**. Estamos comprometidos con ofrecerle un servicio profesional y de calidad.`;
+Gracias por confiar en nuestro servicio. Estamos comprometidos con ofrecerle una atención profesional y de calidad.`;
   };
   const mensajeInstalador = (cliente, telefono, ubicacion, producto, fecha) => {
-    return `NUEVA INSTALACION PROGRAMADA - **Alcop**
+    return `NUEVA INSTALACION PROGRAMADA
 
 Cliente: ${cliente}  
 Teléfono cliente: ${telefono}  
@@ -1678,7 +1678,7 @@ Gracias por su compromiso y profesionalismo.`;
           datasets: [{
             label: "Total",
             data: descripcionResumen.map((x) => x[1]),
-            backgroundColor: "#0f766e"
+            backgroundColor: "#58738f"
           }]
         },
         options: {
@@ -2664,8 +2664,8 @@ Gracias por su compromiso y profesionalismo.`;
             datasets: [{
               label: "Ventas",
               data: Object.values(ventasUlt30),
-              borderColor: "#1d4ed8",
-              backgroundColor: "rgba(29, 78, 216, 0.15)",
+              borderColor: "#374151",
+              backgroundColor: "rgba(55, 65, 81, 0.16)",
               fill: true,
               tension: 0.25
             }]
@@ -2678,7 +2678,7 @@ Gracias por su compromiso y profesionalismo.`;
           type: "bar",
           data: {
             labels: vendedores.map((x) => x[0]),
-            datasets: [{ label: "Ventas", data: vendedores.map((x) => x[1]), backgroundColor: "#0f766e" }]
+            datasets: [{ label: "Ventas", data: vendedores.map((x) => x[1]), backgroundColor: "#58738f" }]
           },
           options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.8, plugins: { legend: { display: false } } }
         });
@@ -2830,14 +2830,14 @@ Gracias por su compromiso y profesionalismo.`;
   if (overlay) overlay.onclick = () => { sidebar.classList.remove("show"); overlay.classList.remove("show"); };
 
   const views = {
-    dashboard: "Panel Principal - Reportes y Estadísticas",
+    dashboard: "Centro de Operaciones - Reportes y Estadísticas",
     "ventas-historial": "Historial de Ventas",
     "ventas-form": "Registrar Venta",
     "instalacion-historial": "Programacion de Instalaciones",
     "instalacion-form": "Registrar Programacion",
     "visitas-historial": "Historial de Visitas",
     "visitas-form": "Registrar Visita",
-    "mercancia-historial": "Reporte de Mercancia",
+    "mercancia-historial": "Inventario y Mercancia",
     "mercancia-form": "Registrar Mercancia",
     "gastos-historial": "Gastos",
     "gastos-form": "Registrar Gasto",
