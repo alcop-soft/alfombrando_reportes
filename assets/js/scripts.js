@@ -46,12 +46,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   const q = (s) => document.querySelector(s);
   const txt = (s) => String(s || "").trim();
   const esAdmin = () => leerUsuario().rol === "admin";
+  const esEmpleado = () => leerUsuario().rol === "empleado";
+  const esSoloConsulta = () => esAdmin();
+  const puedeOperar = () => esEmpleado();
   window.esAdmin = esAdmin;
-  const validarPermisoAdmin = () => {
-    if (esAdmin()) return true;
-    window.alert("No tienes permisos");
+  window.esEmpleado = esEmpleado;
+  window.puedeOperar = puedeOperar;
+  const avisarSoloConsulta = () => {
+    if (typeof alertx === "function") alertx("El acceso admin es solo para consulta y analisis.", "info");
+    else window.alert("El acceso admin es solo para consulta y analisis.");
+  };
+  const validarPermisoOperacion = () => {
+    if (puedeOperar()) return true;
+    avisarSoloConsulta();
     return false;
   };
+  const validarPermisoAdmin = validarPermisoOperacion;
   const today = () => new Date().toISOString().slice(0, 10);
   const nowLocalDateTime = () => {
     const d = new Date();
@@ -474,12 +484,12 @@ Gracias por su compromiso y profesionalismo.`;
     return `${base}${detalle}${hint ? ` ${hint}` : ""}`;
   };
   window.editar = (fn) => {
-    if (!validarPermisoAdmin()) return false;
+    if (!validarPermisoOperacion()) return false;
     if (typeof fn === "function") fn();
     return true;
   };
   window.cancelarPedido = async (pedidoId) => {
-    if (!validarPermisoAdmin()) return false;
+    if (!validarPermisoOperacion()) return false;
     const pedido = txt(pedidoId);
     if (!pedido) {
       window.alert("Debes indicar el numero de pedido");
@@ -977,7 +987,7 @@ Gracias por su compromiso y profesionalismo.`;
       e.preventDefault();
       if (!carritoProductos.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
       try {
-        if (modoEdicion && !validarPermisoAdmin()) return;
+        if (!validarPermisoOperacion()) return;
         const pedidoIdActual = txt(q("#numeroPedido")?.value) || ensurePedidoId();
         const existeEnEstado = st.ventas.filter((x) => txt(getPedidoId(x)) === pedidoIdActual);
         const existeEnLocal = buscarPedidoEnLocalStorage(pedidoIdActual);
@@ -1053,7 +1063,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", async (e) => {
         const btn = e.target.closest(".edit-venta-btn");
         if (!btn) return;
-        if (!validarPermisoAdmin()) return;
+        if (!validarPermisoOperacion()) return;
         const pedidoId = txt(btn.dataset.pedido);
         const fallbackId = txt(btn.dataset.id);
         try {
@@ -1105,6 +1115,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", (e) => {
         const btn = e.target.closest(".create-inst-from-sale-btn");
         if (!btn) return;
+        if (!puedeOperar()) return avisarSoloConsulta();
         const idx = Number(btn.dataset.idx);
         const item = ventasVistaCache[idx];
         if (!item) return;
@@ -1168,10 +1179,13 @@ Gracias por su compromiso y profesionalismo.`;
         const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
         const descTxt = v.descripciones.length > 1 ? `${v.descripciones[0]} (+${v.descripciones.length - 1})` : (v.descripciones[0] || "-");
         const precioProm = v.cantidad > 0 ? (v.total / v.cantidad) : 0;
-        const btnEditar = esAdmin()
+        const btnEditar = puedeOperar()
           ? `<button type="button" class="btn btn-outline-primary edit-venta-btn" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button>`
           : "";
-        return `<tr class="${v.saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div></td></tr>`;
+        const acciones = puedeOperar()
+          ? `<div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div>`
+          : `<button type="button" class="btn btn-outline-info btn-sm ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>`;
+        return `<tr class="${v.saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td>${acciones}</td></tr>`;
       }).join("")
       : '<tr><td colspan="16" class="text-center text-muted">Sin ventas en el periodo seleccionado</td></tr>';
 
@@ -1252,6 +1266,7 @@ Gracias por su compromiso y profesionalismo.`;
       form.onsubmit = async (e) => {
         e.preventDefault();
         try {
+          if (!validarPermisoOperacion()) return;
           const avisoCliente = !!q("#avisoCliente")?.checked;
           const avisoInstalador = !!q("#avisoInstalador")?.checked;
           const payload = {
@@ -1354,7 +1369,7 @@ Gracias por su compromiso y profesionalismo.`;
         e.preventDefault();
         const id = q("#editInstId")?.value;
         if (!id) return;
-        if (!validarPermisoAdmin()) return;
+        if (!validarPermisoOperacion()) return;
         try {
           await upd("instalacion", id, {
             instalador: q("#editInstalador").value || "Sin asignar",
@@ -1379,7 +1394,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", (e) => {
         const btn = e.target.closest(".edit-inst-btn");
         if (!btn) return;
-        if (!validarPermisoAdmin()) return;
+        if (!validarPermisoOperacion()) return;
         const item = st.instalacion.find((x) => String(x.id) === String(btn.dataset.id));
         if (!item) return;
         if (q("#editInstId")) q("#editInstId").value = item.id;
@@ -1405,10 +1420,10 @@ Gracias por su compromiso y profesionalismo.`;
       const estado = val(i, "estado") || "Pendiente";
       const estadoTxt = String(estado || "").toLowerCase().trim();
       const completado = estadoTxt === "completado";
-      const btnEditarInst = esAdmin()
+      const btnEditarInst = puedeOperar()
         ? `<button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button>`
         : "-";
-      return `<tr class="${completado ? "table-success" : ""}"><td><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtQty(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td>${btnEditarInst}</td></tr>`;
+      return `<tr class="${completado ? "table-success" : ""}"><td><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""} ${puedeOperar() ? "" : "disabled"}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtQty(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td>${btnEditarInst}</td></tr>`;
     }).join("");
     if (q("#pedidoEntregar")) q("#pedidoEntregar").textContent = fmtInt(st.instalacion.length);
     const hoy = today();
@@ -1422,6 +1437,10 @@ Gracias por su compromiso y profesionalismo.`;
     animateCounter(q("#instKpiPendientes"), instPend);
     ensureTablePagination(q("#datatablesSimple"), "instalacion", 10);
     document.querySelectorAll(".estado-checkbox").forEach((c) => c.onchange = async function () {
+      if (!validarPermisoOperacion()) {
+        this.checked = !this.checked;
+        return;
+      }
       try { await upd("instalacion", this.dataset.id, { estado: this.checked ? "Completado" : "Pendiente" }); renderInst(); }
       catch (err) { this.checked = !this.checked; alertx(errEs("No fue posible cambiar el estado del pedido.", err), "error"); }
     });
@@ -1541,6 +1560,7 @@ Gracias por su compromiso y profesionalismo.`;
     form.onsubmit = async (e) => {
       e.preventDefault();
       try {
+        if (!validarPermisoOperacion()) return;
         const payload = buildGastoPayload();
         await ins("gastos", payload);
         resetGastosForm();
@@ -1551,7 +1571,7 @@ Gracias por su compromiso y profesionalismo.`;
     if (editForm && !editForm.dataset.bound) {
       editForm.onsubmit = async (e) => {
         e.preventDefault();
-        if (!validarPermisoAdmin()) return;
+        if (!validarPermisoOperacion()) return;
         const id = txt(editIdInput?.value);
         if (!id) return;
         try {
@@ -1569,7 +1589,7 @@ Gracias por su compromiso y profesionalismo.`;
     body.onclick = (e) => {
       const btn = e.target.closest(".edit-gasto-btn");
       if (!btn) return;
-      if (!validarPermisoAdmin()) return;
+      if (!validarPermisoOperacion()) return;
       const item = st.gastos.find((x) => String(val(x, "id")) === String(btn.dataset.id));
       if (!item) return;
       const rawTipo = txt(val(item, "tipo"));
@@ -1604,7 +1624,7 @@ Gracias por su compromiso y profesionalismo.`;
     const rows = st.gastos || [];
     body.innerHTML = rows.length
       ? rows.map((g) => {
-        const btnEditar = esAdmin()
+        const btnEditar = puedeOperar()
           ? `<button type="button" class="btn btn-sm btn-outline-primary edit-gasto-btn" data-id="${val(g, "id")}"><i class="fas fa-pen me-1"></i>Editar</button>`
           : "-";
         return `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${val(g, "descripcion") || "-"}</td><td>${money(val(g, "monto"))}</td><td>${metodoPagoGasto(g)}</td><td>${fmtDateTime(fechaMovimientoGasto(g))}</td><td>${btnEditar}</td></tr>`;
@@ -1780,6 +1800,7 @@ Gracias por su compromiso y profesionalismo.`;
     }
 
     function irAVenta(id) {
+      if (!puedeOperar()) return avisarSoloConsulta();
       const visita = st.visitas.find((v) => String(val(v, "id")) === String(id));
       if (!visita) return alertx("No fue posible encontrar la visita seleccionada.", "warning");
       const payload = {
@@ -1797,7 +1818,7 @@ Gracias por su compromiso y profesionalismo.`;
     }
 
     function abrirEdicionVisita(id) {
-      if (!validarPermisoAdmin()) return;
+      if (!validarPermisoOperacion()) return;
       const visita = st.visitas.find((v) => String(val(v, "id")) === String(id));
       if (!visita) return alertx("No fue posible encontrar la visita para editar.", "warning");
       if (q("#editVisitaId")) q("#editVisitaId").value = val(visita, "id");
@@ -1814,7 +1835,7 @@ Gracias por su compromiso y profesionalismo.`;
 
     async function guardarEdicionVisita(e) {
       e.preventDefault();
-      if (!validarPermisoAdmin()) return;
+      if (!validarPermisoOperacion()) return;
       const id = q("#editVisitaId")?.value;
       const cliente = txt(q("#editVisitaCliente")?.value);
       if (!id) return alertx("No fue posible identificar la visita.", "warning");
@@ -1841,6 +1862,10 @@ Gracias por su compromiso y profesionalismo.`;
     }
 
     async function cambiarEstado(id, nuevoEstado, selectEl) {
+      if (!puedeOperar()) {
+        pintarSelectEstado(selectEl, selectEl?.dataset.estado || "pendiente");
+        return avisarSoloConsulta();
+      }
       const estadoPrevio = normalizarEstado(selectEl?.dataset.estado || "pendiente");
       const estadoNuevo = normalizarEstado(nuevoEstado);
       if (estadoNuevo === estadoPrevio) return;
@@ -1867,10 +1892,13 @@ Gracias por su compromiso y profesionalismo.`;
           const estado = normalizarEstado(val(v, "estado"));
           const clase = estado === "realizado" ? "table-success" : (estado === "cancelado" ? "table-danger" : "");
           const codigo = txt(val(v, "codigo_visita", "codigo")) || codigoPorId(val(v, "id"));
-          const btnEditar = esAdmin()
+          const btnEditar = puedeOperar()
             ? `<button type="button" class="btn btn-sm btn-outline-primary edit-visita-btn" data-id="${val(v, "id")}"><i class="fas fa-pen-to-square me-1"></i>Editar</button>`
             : "";
-          return `<tr class="${clase}"><td>${codigo}</td><td>${val(v, "fecha") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "telefono") || "-"}</td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "observaciones") || "-"}</td><td><select class="form-select form-select-sm visita-estado-select ${claseEstadoVisita(estado)}" data-id="${val(v, "id")}" data-estado="${estado}"><option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>pendiente</option><option value="realizado" ${estado === "realizado" ? "selected" : ""}>realizado</option><option value="cancelado" ${estado === "cancelado" ? "selected" : ""}>cancelado</option></select></td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-secondary btn-cotizar-visita" data-id="${val(v, "id")}"><i class="fas fa-file-signature me-1"></i>Cotizar</button>${btnEditar}</div><button type="button" class="btn btn-outline-dark btn-venta-desde-visita" data-id="${val(v, "id")}"><i class="fas fa-cart-plus me-1"></i>Venta</button></div></td></tr>`;
+          const botonVenta = puedeOperar()
+            ? `<button type="button" class="btn btn-outline-dark btn-venta-desde-visita" data-id="${val(v, "id")}"><i class="fas fa-cart-plus me-1"></i>Venta</button>`
+            : "";
+          return `<tr class="${clase}"><td>${codigo}</td><td>${val(v, "fecha") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "telefono") || "-"}</td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "observaciones") || "-"}</td><td><select class="form-select form-select-sm visita-estado-select ${claseEstadoVisita(estado)}" data-id="${val(v, "id")}" data-estado="${estado}" ${puedeOperar() ? "" : "disabled"}><option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>pendiente</option><option value="realizado" ${estado === "realizado" ? "selected" : ""}>realizado</option><option value="cancelado" ${estado === "cancelado" ? "selected" : ""}>cancelado</option></select></td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-secondary btn-cotizar-visita" data-id="${val(v, "id")}"><i class="fas fa-file-signature me-1"></i>Cotizar</button>${btnEditar}</div>${botonVenta}</div></td></tr>`;
         }).join("");
         ensureTablePagination(tabla, "visitas", 10);
 
@@ -1896,6 +1924,7 @@ Gracias por su compromiso y profesionalismo.`;
     async function insertarVisita(e) {
       if (e) e.preventDefault();
       if (!form) return;
+      if (!validarPermisoOperacion()) return;
       const cliente = txt(q("#cliente")?.value);
       if (!cliente) return alertx("El campo cliente es obligatorio.", "warning");
       const payload = {
@@ -2131,7 +2160,7 @@ Gracias por su compromiso y profesionalismo.`;
         e.preventDefault();
         if (!carritoMercancia.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
         try {
-          if (modoEdicion && !validarPermisoAdmin()) return;
+          if (!validarPermisoOperacion()) return;
           const pedidoIdActual = txt(q("#numeroPedidoMercancia")?.value);
           if (!pedidoIdActual) return alertx("Debes ingresar el numero de pedido para guardar la mercancia.", "warning");
           const payloads = buildPayloadItems(pedidoIdActual);
@@ -2195,7 +2224,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", async (e) => {
         const btn = e.target.closest(".edit-mercancia-btn");
         if (!btn) return;
-        if (!validarPermisoAdmin()) return;
+        if (!validarPermisoOperacion()) return;
         const pedidoId = txt(btn.dataset.pedido);
         const fallbackId = txt(btn.dataset.id);
         try {
@@ -2312,7 +2341,7 @@ Gracias por su compromiso y profesionalismo.`;
     return rows.map((m, idx) => {
       const productoTxt = m.productos.length > 1 ? `${m.productos[0]} (+${m.productos.length - 1})` : (m.productos[0] || "-");
       const descTxt = m.descripciones.length > 1 ? `${m.descripciones[0]} (+${m.descripciones.length - 1})` : (m.descripciones[0] || "-");
-      const btnEditarMercancia = esAdmin()
+      const btnEditarMercancia = puedeOperar()
         ? `<button type="button" class="btn btn-sm btn-outline-primary edit-mercancia-btn" data-pedido="${m.pedidoId || ""}" data-id="${m.id}"><i class="fas fa-pen me-1"></i>Editar</button>`
         : "";
       const acciones = withActions
@@ -2388,9 +2417,9 @@ Gracias por su compromiso y profesionalismo.`;
         const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
         const metodoSeleccionado = normalizarMetodoCartera(c.metodoCartera);
         const puedeAbonar = Number(c.saldo || 0) > 0;
-        const acciones = puedeAbonar
+        const acciones = (puedeAbonar && puedeOperar())
           ? `<div class="d-flex flex-column flex-md-row gap-2"><input type="number" class="abono-input form-control form-control-sm" min="0.01" step="0.01" data-i="${i}" placeholder="Valor"><input type="text" class="abono-cartera-input form-control form-control-sm" data-i="${i}" placeholder="No. cartera" value="${c.numeroCartera && c.numeroCartera !== "-" ? c.numeroCartera : ""}"><select class="metodo-cartera-select form-select form-select-sm" data-i="${i}"><option value="">Metodo</option><option value="Transferencia" ${metodoSeleccionado === "Transferencia" ? "selected" : ""}>Transferencia</option><option value="Tarjeta" ${metodoSeleccionado === "Tarjeta" ? "selected" : ""}>Tarjeta</option><option value="Efectivo" ${metodoSeleccionado === "Efectivo" ? "selected" : ""}>Efectivo</option></select><button class="btn btn-success btn-sm abonar-btn" data-id="${c.id}" data-i="${i}">Abonar</button></div>`
-          : '<span class="badge bg-success">Pagado</span>';
+          : `<span class="badge ${Number(c.saldo || 0) <= 0 ? "bg-success" : "bg-secondary"}">${Number(c.saldo || 0) <= 0 ? "Pagado" : "Solo lectura"}</span>`;
         return `<tr class="${c.saldo <= 0 ? "table-success" : ""}"><td>${c.cliente}</td><td>${c.telefono}</td><td>${productoTxt}</td><td>${descripcionTxt}</td><td>${c.fecha}</td><td>${c.numeroPedido}</td><td>${c.numeroCartera || "-"}</td><td>${c.metodoCartera || "-"}</td><td>${money(c.total)}</td><td>${money(c.abono)}</td><td>${money(c.saldo)}</td><td>${acciones}</td></tr>`;
       }).join("");
       const totalPendiente = cart.reduce((s, c) => s + Number(c.saldo || 0), 0);
@@ -2403,6 +2432,7 @@ Gracias por su compromiso y profesionalismo.`;
       ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
 
       document.querySelectorAll(".abonar-btn").forEach((b) => b.onclick = async function () {
+        if (!validarPermisoOperacion()) return;
         const i = Number(this.dataset.i);
         const inp = document.querySelector(`input.abono-input[data-i="${i}"]`);
         const carteraInp = document.querySelector(`input.abono-cartera-input[data-i="${i}"]`);
@@ -2562,6 +2592,7 @@ Gracias por su compromiso y profesionalismo.`;
   }
 
   async function modDashboard() {
+    const adminMode = esSoloConsulta();
     const inRange = (fecha, from, to) => {
       const d = asDay(fecha);
       if (!d || d === "-") return false;
@@ -2584,9 +2615,16 @@ Gracias por su compromiso y profesionalismo.`;
       document.querySelectorAll(".dash-custom-range").forEach((el) => el.classList.toggle("d-none", !show));
     };
 
-    await Promise.all([load("ventas"), load("instalacion")]);
+    await Promise.all([
+      load("ventas"),
+      load("instalacion"),
+      ...(adminMode ? [load("visitas"), load("gastos"), load("mercancia")] : [])
+    ]);
     const ventas = [...(st.ventas || [])];
     const instalaciones = [...(st.instalacion || [])];
+    const visitas = [...(st.visitas || [])];
+    const gastos = [...(st.gastos || [])];
+    const mercancia = [...(st.mercancia || [])];
 
     const ventasAgrupadasAll = agruparVentasPorPedido(ventas);
     const hoy = today();
@@ -2617,6 +2655,8 @@ Gracias por su compromiso y profesionalismo.`;
       if (q("#dashVentasMes")) q("#dashVentasMes").textContent = money(ventasMes);
       if (q("#dashCarteraPendiente")) q("#dashCarteraPendiente").textContent = money(carteraPendiente);
       if (q("#dashPedidosInstalar")) q("#dashPedidosInstalar").textContent = fmtInt(pedidosInstalar);
+      const adminSection = q("#adminInsightsSection");
+      if (adminSection) adminSection.classList.toggle("d-none", !adminMode);
 
       const ventasUlt30 = {};
       const endDate = range.to || hoy;
@@ -2734,6 +2774,80 @@ Gracias por su compromiso y profesionalismo.`;
         });
       }
 
+      if (charts.adminVisitasEstado) charts.adminVisitasEstado.destroy();
+      if (charts.adminGastosMetodo) charts.adminGastosMetodo.destroy();
+
+      if (adminMode) {
+        const visitasFiltradas = visitas.filter((v) => inRange(val(v, "fecha"), range.from, range.to));
+        const visitasEstado = {
+          pendiente: visitasFiltradas.filter((v) => String(val(v, "estado") || "").toLowerCase().includes("pend")).length,
+          realizado: visitasFiltradas.filter((v) => ["realizado", "realizada"].includes(String(val(v, "estado") || "").toLowerCase())).length,
+          cancelado: visitasFiltradas.filter((v) => String(val(v, "estado") || "").toLowerCase().includes("cancel")).length
+        };
+        const gastosFiltrados = gastos.filter((g) => inRange(asDay(fechaMovimientoGasto(g)), range.from, range.to));
+        const mercanciaFiltrada = mercancia.filter((m) => inRange(val(m, "fecha_recepcion", "fechaRecepcion"), range.from, range.to));
+        const totalVentasPeriodo = ventasAgrupadas.reduce((sum, v) => sum + Number(v.total || 0), 0);
+        const ticketPromedio = ventasAgrupadas.length ? totalVentasPeriodo / ventasAgrupadas.length : 0;
+        const totalGastos = gastosFiltrados.reduce((s, g) => s + Number(val(g, "monto") || 0), 0);
+        const totalMercancia = mercanciaFiltrada.reduce((s, m) => s + (Number(val(m, "precio") || 0) * Number(val(m, "cantidad_cajas", "cantidad") || 0)), 0);
+        const instalacionesCompletadas = instalaciones.filter((i) => {
+          const estado = String(val(i, "estado") || "").toLowerCase();
+          const fecha = val(i, "fecha_entrega", "fechaEntrega");
+          return estado.includes("completado") && inRange(fecha, range.from, range.to);
+        }).length;
+        const clientesTopMap = {};
+        ventasAgrupadas.forEach((v) => {
+          const cliente = String(v.cliente || "Sin cliente").trim() || "Sin cliente";
+          clientesTopMap[cliente] = (clientesTopMap[cliente] || 0) + Number(v.total || 0);
+        });
+        const topClientes = Object.entries(clientesTopMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const gastosPorMetodo = {};
+        gastosFiltrados.forEach((g) => {
+          const metodo = metodoPagoGasto(g) || "Sin metodo";
+          gastosPorMetodo[metodo] = (gastosPorMetodo[metodo] || 0) + Number(val(g, "monto") || 0);
+        });
+
+        animateCounter(q("#dashAdminTicketPromedio"), ticketPromedio);
+        animateCounter(q("#dashAdminGastosPeriodo"), totalGastos);
+        animateCounter(q("#dashAdminVisitasPendientes"), visitasEstado.pendiente);
+        animateCounter(q("#dashAdminMercanciaPeriodo"), totalMercancia);
+        if (q("#dashAdminInstalacionesCompletadas")) q("#dashAdminInstalacionesCompletadas").textContent = fmtInt(instalacionesCompletadas);
+        const adminTopClientesBody = q("#dashAdminTopClientesBody");
+        if (adminTopClientesBody) {
+          adminTopClientesBody.innerHTML = topClientes.length
+            ? topClientes.map(([cliente, monto], idx) => `<tr><td>${idx + 1}</td><td>${cliente}</td><td>${money(monto)}</td></tr>`).join("")
+            : '<tr><td colspan="3" class="text-center text-muted">Sin datos en el periodo</td></tr>';
+        }
+
+        if (window.Chart && q("#chartAdminVisitasEstado")) {
+          charts.adminVisitasEstado = new window.Chart(q("#chartAdminVisitasEstado"), {
+            type: "doughnut",
+            data: {
+              labels: ["Pendientes", "Realizadas", "Canceladas"],
+              datasets: [{
+                data: [visitasEstado.pendiente, visitasEstado.realizado, visitasEstado.cancelado],
+                backgroundColor: ["#8d6a3f", "#58738f", "#8b5d4b"]
+              }]
+            },
+            options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.1, plugins: { legend: { position: "bottom" } } }
+          });
+        }
+        if (window.Chart && q("#chartAdminGastosMetodo")) {
+          charts.adminGastosMetodo = new window.Chart(q("#chartAdminGastosMetodo"), {
+            type: "bar",
+            data: {
+              labels: Object.keys(gastosPorMetodo),
+              datasets: [{
+                label: "Gastos",
+                data: Object.values(gastosPorMetodo),
+                backgroundColor: "#6f6079"
+              }]
+            },
+            options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.7, plugins: { legend: { display: false } } }
+          });
+        }
+      }
+
       const ultimas = [...ventasAgrupadas].sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || ""))).slice(0, 10);
       const body = q("#dashUltimasVentasBody");
       if (body) {
@@ -2814,6 +2928,10 @@ Gracias por su compromiso y profesionalismo.`;
     if (["btnVentas", "btnInstalacion", "btnGastos", "btnmercancia", "btnVisitas"].includes(id)) showAll();
     const btnNew = e.target.closest(".btn-new-record");
     if (btnNew) {
+      if (!puedeOperar()) {
+        avisarSoloConsulta();
+        return;
+      }
       const target = btnNew.getAttribute("data-target-view");
       if (target) change(target);
     }
@@ -2843,6 +2961,13 @@ Gracias por su compromiso y profesionalismo.`;
     "gastos-form": "Registrar Gasto",
     cartera: "Cartera de Clientes"
   };
+  const readonlyRedirects = {
+    "ventas-form": "ventas-historial",
+    "instalacion-form": "instalacion-historial",
+    "visitas-form": "visitas-historial",
+    "mercancia-form": "mercancia-historial",
+    "gastos-form": "gastos-historial"
+  };
   const links = document.querySelectorAll(".nav-link[data-view]"), title = q("#viewTitle");
   const syncSidebarGroups = (viewKey) => {
     document.querySelectorAll(".nav-submenu").forEach((submenu) => {
@@ -2869,10 +2994,12 @@ Gracias por su compromiso y profesionalismo.`;
     else if (v === "cartera") await modCartera();
   }
   function change(v) {
+    if (esSoloConsulta() && readonlyRedirects[v]) v = readonlyRedirects[v];
     const c = q("#viewContainer"); if (!c || !views[v]) return;
     c.innerHTML = '<div class="text-center p-5"><div class="spinner-border"></div></div>'; vistActual = v;
     fetch(`views/${v}.html`).then((r) => { if (!r.ok) throw new Error("Vista no encontrada"); return r.text(); }).then(async (html) => {
       c.innerHTML = html; if (title) title.textContent = views[v];
+      if (esSoloConsulta()) c.querySelectorAll(".btn-new-record").forEach((btn) => btn.classList.add("d-none"));
       links.forEach((l) => { l.classList.toggle("active", l.getAttribute("data-view") === v); });
       syncSidebarGroups(v);
       await init(v); if (sidebar) sidebar.classList.remove("show"); if (overlay) overlay.classList.remove("show");
@@ -2880,4 +3007,11 @@ Gracias por su compromiso y profesionalismo.`;
   }
   links.forEach((l) => l.addEventListener("click", (e) => { e.preventDefault(); change(l.getAttribute("data-view")); }));
   change("dashboard");
+  document.addEventListener("click", (e) => {
+    const btnNew = e.target.closest(".btn-new-record");
+    if (btnNew && !puedeOperar()) {
+      e.preventDefault();
+      avisarSoloConsulta();
+    }
+  }, { passive: false });
 });

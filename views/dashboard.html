@@ -152,4 +152,94 @@
             </div>
         </div>
     </div>
+
+    <div class="admin-insights d-none" id="adminInsightsSection">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-binoculars me-2 text-primary"></i>Panel Ejecutivo Admin</span>
+                <small class="text-muted">Acceso de solo lectura con analitica ampliada</small>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card bg-gradient-primary text-white border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <p class="mb-1 opacity-75">Ticket Promedio</p>
+                                <h4 class="mb-0" id="dashAdminTicketPromedio" data-counter-type="money">$0</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card bg-gradient-warning text-white border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <p class="mb-1 opacity-75">Gastos del Periodo</p>
+                                <h4 class="mb-0" id="dashAdminGastosPeriodo" data-counter-type="money">$0</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card bg-gradient-success text-white border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <p class="mb-1 opacity-75">Visitas Pendientes</p>
+                                <h4 class="mb-0" id="dashAdminVisitasPendientes" data-counter-type="number">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card bg-gradient-info text-white border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <p class="mb-1 opacity-75">Mercancia del Periodo</p>
+                                <h4 class="mb-0" id="dashAdminMercanciaPeriodo" data-counter-type="money">$0</h4>
+                                <small class="opacity-75 d-block mt-2">Instalaciones completadas: <span id="dashAdminInstalacionesCompletadas">0</span></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-xl-4">
+                        <div class="card shadow-sm border-0 h-100 dashboard-chart-card dashboard-pie-card">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="fas fa-clipboard-check me-2 text-primary"></i>Estado de Visitas
+                            </div>
+                            <div class="card-body">
+                                <canvas id="chartAdminVisitasEstado"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-4">
+                        <div class="card shadow-sm border-0 h-100 dashboard-chart-card">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="fas fa-credit-card me-2 text-primary"></i>Gastos por Metodo
+                            </div>
+                            <div class="card-body">
+                                <canvas id="chartAdminGastosMetodo"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-4">
+                        <div class="card shadow-sm border-0 h-100">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="fas fa-crown me-2 text-primary"></i>Top Clientes
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-sm mb-0 align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Cliente</th>
+                                                <th>Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="dashAdminTopClientesBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
