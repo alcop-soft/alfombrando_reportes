@@ -123,6 +123,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     efectivo: "Efectivo",
     tarjeta: "Tarjeta",
     transferencia: "Transferencia",
+    "Credito": "Crédito",
+    credito: "Crédito",
+    crédito: "Crédito",
     tranferencia: "Transferencia"
   };
   const normalizarMetodoPagoVenta = (raw) => {
@@ -1192,7 +1195,7 @@ Gracias por su compromiso y profesionalismo.`;
     const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
     const cobrado = ventasVista.reduce((s, v) => s + Number(v.abono || 0), 0);
     const credito = ventasVista.reduce((s, v) => s + Number(v.saldo || 0), 0);
-    const totalPorMetodo = { Efectivo: 0, Tarjeta: 0, Transferencia: 0 };
+    const totalPorMetodo = { Efectivo: 0, Tarjeta: 0, Transferencia: 0, Crédito: 0 };
     ventasVista.forEach((v) => {
       const metodo = normalizarMetodoPagoVenta(v.metodoPago);
       if (Object.prototype.hasOwnProperty.call(totalPorMetodo, metodo)) {
