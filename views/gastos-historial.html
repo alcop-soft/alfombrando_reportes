@@ -1,232 +1,185 @@
-<!-- Vista: Registro de Gastos -->
-<div class="view-container">
-    <!-- Formulario -->
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-gradient-primary text-white">
-            <h6 class="mb-0 fw-semibold">
-                <i class="fas fa-plus-circle me-2"></i>
-                Reporte de Gastos y Movimientos
-            </h6>
-        </div>
+<div class="view-container dashboard-enterprise gastos-history-page">
+    <div class="card shadow-sm border-0 d-none">
         <div class="card-body">
-            <form id="dataForm" class="row g-3">
-                <div class="col-lg-4 col-md-6">
-                    <label for="tipo" class="form-label fw-semibold">
-                        <i class="fas fa-tags me-2 text-primary"></i>Tipo de Movimiento
-                    </label>
-                    <select class="form-select form-select-lg" id="tipo">
-                        <option value="">Seleccione tipo de movimiento</option>
-                        <option value="1">Impuestos</option>
-                        <option value="2">Vehiculos</option>
-                        <option value="3">Pago Proveedores</option>
-                        <option value="4">Gastos Personales</option>
-                        <option value="5">Fletes</option>
-                        <option value="6">Servicios publicos</option>
-                        <option value="7">Otros</option>
-                        <option value="8">Nomina</option>
-                    </select>
-                </div>
-                <div class="col-lg-4 col-md-6 d-none" id="tipoOtroWrap">
-                    <label for="tipoOtro" class="form-label fw-semibold">
-                        <i class="fas fa-pen me-2 text-primary"></i>Especifica el tipo
-                    </label>
-                    <input type="text" class="form-control form-control-lg" id="tipoOtro" placeholder="Escribe el tipo de movimiento">
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <label for="monto" class="form-label fw-semibold">
-                        <i class="fas fa-dollar-sign me-2 text-primary"></i>Monto del Movimiento
-                    </label>
-                    <div class="input-group input-group-lg">
-                        <span class="input-group-text bg-light">$</span>
-                        <input type="number" step="0.01" required class="form-control form-control-lg" id="monto" placeholder="0.00">
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <label for="fechaHora" class="form-label fw-semibold">
-                        <i class="fas fa-calendar-alt me-2 text-primary"></i>Fecha y Hora del Movimiento
-                    </label>
-                    <input type="datetime-local" required class="form-control form-control-lg" id="fechaHora">
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <label for="metodoPago" class="form-label fw-semibold">
-                        <i class="fas fa-credit-card me-2 text-primary"></i>Metodo de Pago
-                    </label>
-                    <select class="form-select form-select-lg" id="metodoPago" required>
-                        <option value="">Seleccione metodo de pago</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Tarjeta">Tarjeta</option>
-                        <option value="Transferencia">Transferencia</option>
-                    </select>
-                </div>
-                <div class="col-lg-8 col-md-12">
-                    <label for="descripcion" class="form-label fw-semibold">
-                        <i class="fas fa-sticky-note me-2 text-primary"></i>Descripcion del Movimiento
-                    </label>
-                    <input type="text" class="form-control form-control-lg" id="descripcion" placeholder="Ingrese una descripcion detallada del movimiento">
-                </div>
-                <div class="col-12">
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="reset" class="btn btn-outline-secondary btn-lg px-4 me-md-2">
-                            <i class="fas fa-eraser me-2"></i>Limpiar Formulario
-                        </button>
-                        <button type="submit" class="btn btn-primary btn-lg px-4">
-                            <i class="fas fa-save me-2"></i>Registrar Movimiento
-                        </button>
-                    </div>
-                </div>
+            <form id="dataForm">
+                <select id="tipo">
+                    <option value="">Seleccione tipo de movimiento</option>
+                    <option value="1">Impuestos</option>
+                    <option value="2">Vehiculos</option>
+                    <option value="3">Pago Proveedores</option>
+                    <option value="4">Gastos Personales</option>
+                    <option value="5">Fletes</option>
+                    <option value="6">Servicios publicos</option>
+                    <option value="7">Otros</option>
+                    <option value="8">Nomina</option>
+                </select>
+                <div id="tipoOtroWrap" class="d-none"><input type="text" id="tipoOtro"></div>
+                <input type="number" id="monto">
+                <input type="datetime-local" id="fechaHora">
+                <select id="metodoPago">
+                    <option value="">Seleccione metodo de pago</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Transferencia">Transferencia</option>
+                </select>
+                <input type="text" id="descripcion">
             </form>
         </div>
     </div>
 
+    <div class="ventas-history-header">
+        <div>
+            <h2 class="dashboard-title mb-1">Gastos - Control de Movimientos</h2>
+            <p class="dashboard-subtitle mb-0">Finanzas / Gastos</p>
+        </div>
+        <small class="text-muted">Mostrando: <span id="gastosFiltroActualLabel">Este mes</span></small>
+    </div>
+
+    <div class="row g-3 mb-3 ventas-kpis">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 ventas-kpi-card">
+                <div class="card-body">
+                    <span class="ventas-kpi-icon ventas-kpi-danger"><i class="fas fa-receipt"></i></span>
+                    <div>
+                        <p class="mb-1 text-muted">Gastos del periodo</p>
+                        <h4 class="mb-0 fw-bold" id="gastosKpiTotal" data-counter-type="money">$0</h4>
+                        <small class="text-muted">Total de egresos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 ventas-kpi-card">
+                <div class="card-body">
+                    <span class="ventas-kpi-icon ventas-kpi-primary"><i class="fas fa-list-check"></i></span>
+                    <div>
+                        <p class="mb-1 text-muted">Movimientos</p>
+                        <h4 class="mb-0 fw-bold" id="gastosKpiMovimientos" data-counter-type="number">0</h4>
+                        <small class="text-muted">Registros filtrados</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 ventas-kpi-card">
+                <div class="card-body">
+                    <span class="ventas-kpi-icon ventas-kpi-warning"><i class="fas fa-wallet"></i></span>
+                    <div>
+                        <p class="mb-1 text-muted">Cartera pagada</p>
+                        <h4 class="mb-0 fw-bold" id="gastosKpiSemana" data-counter-type="money">$0</h4>
+                        <small class="text-muted">Ingresos cobrados</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 ventas-kpi-card">
+                <div class="card-body">
+                    <span class="ventas-kpi-icon ventas-kpi-success"><i class="fas fa-chart-line"></i></span>
+                    <div>
+                        <p class="mb-1 text-muted">Saldo neto</p>
+                        <h4 class="mb-0 fw-bold" id="gastosKpiPromDia" data-counter-type="money">$0</h4>
+                        <small class="text-muted">Pagado menos gastos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="d-none">
+            <span id="gastosKpiHoy" data-counter-type="money">$0</span>
+        </div>
+    </div>
+
+    <div class="ventas-toolbar toolbar-responsive">
+        <div class="ventas-search input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="buscadorGastos" class="form-control" placeholder="Buscar movimientos..." aria-label="Buscar movimientos">
+        </div>
+        <select id="gastosFiltroTipo" class="form-select ventas-filter-select" aria-label="Filtro por tipo">
+            <option value="todos" selected>Todos los tipos</option>
+        </select>
+        <select id="gastosFiltroMetodo" class="form-select ventas-filter-select" aria-label="Filtro por metodo">
+            <option value="todos" selected>Todos los metodos</option>
+            <option value="Efectivo">Efectivo</option>
+            <option value="Tarjeta">Tarjeta</option>
+            <option value="Transferencia">Transferencia</option>
+        </select>
+        <select id="gastosFiltroPeriodo" class="form-select ventas-filter-select" aria-label="Periodo">
+            <option value="hoy">Hoy</option>
+            <option value="mes" selected>Este mes</option>
+            <option value="anio">Este anio</option>
+            <option value="custom">Personalizado</option>
+        </select>
+        <input type="date" id="gastosFechaDesde" class="form-control gastos-custom-range d-none" aria-label="Desde">
+        <input type="date" id="gastosFechaHasta" class="form-control gastos-custom-range d-none" aria-label="Hasta">
+        <button class="btn btn-outline-primary gastos-custom-range d-none ventas-new-btn" type="button" id="gastosAplicarFiltro">
+            <i class="fas fa-filter"></i><span>Aplicar</span>
+        </button>
+        <button class="btn btn-primary btn-new-record ventas-new-btn" type="button" data-target-view="gastos-form">
+            <i class="fas fa-plus"></i><span>Nuevo movimiento</span>
+        </button>
+        <div class="btn-group ventas-day-toggle" role="group">
+            <button id="btnGastos" class="btn btn-outline-secondary active" type="button">Tabla</button>
+            <button id="btnGastosDia" class="btn btn-outline-secondary" type="button">Analisis</button>
+        </div>
+    </div>
+
     <div id="controlGastos" class="d-none">
-    <h6 class="fw-semibold mb-3"><i class="fas fa-chart-pie me-2 text-primary"></i>Control de Gastos</h6>
-    <div class="card shadow-sm border-0 mb-3">
-        <div class="card-body">
-            <div class="row g-3 align-items-end">
-                <div class="col-lg-3 col-md-6">
-                    <label for="gastosFiltroPeriodo" class="form-label fw-semibold mb-1">Periodo</label>
-                    <select id="gastosFiltroPeriodo" class="form-select">
-                        <option value="hoy">Hoy</option>
-                        <option value="mes" selected>Este mes</option>
-                        <option value="anio">Este año</option>
-                        <option value="custom">Personalizado</option>
-                    </select>
-                </div>
-                <div class="col-lg-3 col-md-6 gastos-custom-range d-none">
-                    <label for="gastosFechaDesde" class="form-label fw-semibold mb-1">Desde</label>
-                    <input type="date" id="gastosFechaDesde" class="form-control">
-                </div>
-                <div class="col-lg-3 col-md-6 gastos-custom-range d-none">
-                    <label for="gastosFechaHasta" class="form-label fw-semibold mb-1">Hasta</label>
-                    <input type="date" id="gastosFechaHasta" class="form-control">
-                </div>
-                <div class="col-lg-3 col-md-6">
-                    <button class="btn btn-primary w-100" type="button" id="gastosAplicarFiltro">
-                        <i class="fas fa-filter me-2"></i>Aplicar filtro
-                    </button>
-                </div>
-            </div>
-            <div class="mt-2">
-                <small class="text-muted" id="gastosFiltroActualLabel">Este mes</small>
-            </div>
-        </div>
-    </div>
-    <div class="row g-3 mb-3">
-        <div class="col-lg-4">
-            <div class="card bg-danger text-white border-0 shadow-sm h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-1">Cartera Pendiente</h6>
-                        <h3 class="mb-0" id="gastosKpiHoy" data-counter-type="money">$0</h3>
+        <div class="row g-3 mb-3">
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100 ventas-table-card">
+                    <div class="card-header bg-white ventas-table-header">
+                        <div>
+                            <h6 class="mb-0 fw-semibold">Movimientos por tipo</h6>
+                            <small class="text-muted">Distribucion del periodo</small>
+                        </div>
                     </div>
-                    <i class="fas fa-calendar-day fs-2 opacity-50"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-4">
-            <div class="card bg-warning text-white border-0 shadow-sm h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-1">Cartera Pagada</h6>
-                        <h3 class="mb-0" id="gastosKpiSemana" data-counter-type="money">$0</h3>
+                    <div class="card-body">
+                        <canvas id="chartGastosTipo"></canvas>
                     </div>
-                    <i class="fas fa-history fs-2 opacity-50"></i>
                 </div>
             </div>
-        </div>
-        <div class="col-lg-4">
-            <div class="card bg-success text-white border-0 shadow-sm h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-1">Saldo Neto (Pagado - Gastos)</h6>
-                        <h3 class="mb-0" id="gastosKpiPromDia" data-counter-type="money">$0</h3>
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100 ventas-table-card">
+                    <div class="card-header bg-white ventas-table-header">
+                        <div>
+                            <h6 class="mb-0 fw-semibold">Movimientos por descripcion</h6>
+                            <small class="text-muted">Top conceptos</small>
+                        </div>
                     </div>
-                    <i class="fas fa-chart-line fs-2 opacity-50"></i>
+                    <div class="card-body">
+                        <canvas id="chartGastosDescripcion"></canvas>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
-    <div class="row g-3 mb-3">
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-light fw-semibold">
-                    <i class="fas fa-tags me-2 text-primary"></i>Movimientos por Tipo
-                </div>
-                <div class="card-body">
-                    <canvas id="chartGastosTipo"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-light fw-semibold">
-                    <i class="fas fa-sticky-note me-2 text-primary"></i>Movimientos por Descripcion
-                </div>
-                <div class="card-body">
-                    <canvas id="chartGastosDescripcion"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-    </div>
-
-    <!-- Buscador General -->
-    <div class="card-body pt-3 pb-0 px-0">
-        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive gap-2 flex-wrap">
-            <div class="input-group" style="max-width: 400px;">
-                <span class="input-group-text bg-white border-end-0">
-                    <i class="fas fa-search text-muted"></i>
-                </span>
-                <input type="text" id="buscadorGastos" class="form-control border-start-0" placeholder="Buscar en movimientos..." aria-label="Buscar">
-            </div>
-            <div class="btn-group" role="group">
-                <button id="btnGastos" class="btn btn-outline-primary active" type="button">
-                    <i class="fas fa-list me-2"></i>Todos los Movimientos
-                </button>
-                <button id="btnGastosDia" class="btn btn-outline-primary" type="button">
-                    <i class="fas fa-chart-pie me-2"></i>Control de Gastos
-                </button>
             </div>
         </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="card shadow-sm mb-4 border-0">
-        <div class="card-header bg-gradient-primary text-white">
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-3">
-                    <h6 class="mb-0 fw-semibold">
-                        <i class="fas fa-table me-2"></i>Registro de Movimientos
-                    </h6>
-                    <span class="badge bg-white text-primary fs-6 px-3 py-2" id="gastosTotal">0</span>
-                </div>
-                <div class="text-end">
-                    <small class="text-white opacity-75">Total de registros</small>
-                </div>
+    <div class="card shadow-sm mb-4 border-0 ventas-table-card">
+        <div class="card-header bg-white ventas-table-header">
+            <div>
+                <h6 class="mb-0 fw-semibold">Registro de movimientos</h6>
+                <small class="text-muted">Tabla principal</small>
             </div>
+            <span class="ventas-count-badge"><span id="gastosTotal">0</span> registros</span>
         </div>
         <div class="card-body p-0">
             <div id="tablaGastos" class="table-responsive">
-                <table id="datatablesSimple" class="table table-hover mb-0 align-middle">
-                    <thead class="table-light">
+                <table id="datatablesSimple" class="table table-hover mb-0 align-middle ventas-modern-table">
+                    <thead>
                         <tr>
-                            <th class="fw-semibold"><i class="fas fa-tags me-2"></i>Tipo de Movimiento</th>
-                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Descripcion</th>
-                            <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Monto</th>
-                            <th class="fw-semibold"><i class="fas fa-credit-card me-2"></i>Metodo de Pago</th>
-                            <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha y Hora</th>
-                            <th class="fw-semibold"><i class="fas fa-tools me-2"></i>Acciones</th>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Descripcion</th>
+                            <th>Metodo</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <!-- Los datos se agregarÃ¡n aquÃ­ -->
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
-</div>
+        </div>
     </div>
-
-
 </div>
 
 <div class="modal fade" id="editarGastoModal" tabindex="-1" aria-labelledby="editarGastoLabel" aria-hidden="true">

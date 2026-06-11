@@ -1,143 +1,184 @@
-<div class="view-container">
-    <div class="form-view-shell">
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-gradient-primary text-white">
-            <h6 class="mb-0 fw-semibold"><i class="fas fa-plus-circle me-2"></i>Formulario de Registro de Ventas</h6>
+<div class="view-container dashboard-enterprise ventas-form-page">
+    <div class="ventas-form-header">
+        <div>
+            <h2 class="dashboard-title mb-1">Registro de Venta</h2>
+            <p class="dashboard-subtitle mb-0">Ventas <i class="fas fa-chevron-right mx-2"></i> Registrar venta</p>
         </div>
-        <div class="card-body">
-            <div id="ventaFromVisitaNotice" class="alert alert-info d-none">
-                <i class="fas fa-info-circle me-2"></i>Venta adelantada desde una visita
-            </div>
-            <form id="dataForm" class="row g-3 ventas-form-grid">
-                <div class="col-lg-4">
-                    <label for="fecha" class="form-label fw-semibold"><i class="fas fa-calendar-alt me-2 text-primary"></i>Fecha de Venta</label>
-                    <input type="date" class="form-control form-control-lg" required id="fecha">
-                </div>
-                <div class="col-lg-4">
-                    <label for="numeroRecibo" class="form-label fw-semibold"><i class="fas fa-receipt me-2 text-primary"></i>Numero de Recibo</label>
-                    <input type="text" class="form-control form-control-lg" id="numeroRecibo" placeholder="Ej: R-1025">
-                </div>
-                <div class="col-lg-4">
-                    <label for="numeroPedido" class="form-label fw-semibold"><i class="fas fa-hashtag me-2 text-primary"></i>Numero de Pedido</label>
-                    <input type="text" class="form-control form-control-lg" id="numeroPedido" placeholder="Ej: P-4481">
-                </div>
+    </div>
 
-                <div class="col-lg-4">
-                    <label for="producto" class="form-label fw-semibold"><i class="fas fa-box me-2 text-primary"></i>Producto</label>
-                    <input type="text" class="form-control form-control-lg" id="producto" placeholder="Nombre del producto">
-                </div>
-                <div class="col-lg-4">
-                    <label for="referencia" class="form-label fw-semibold"><i class="fas fa-tag me-2 text-primary"></i>Descripcion o Referencia</label>
-                    <input type="text" class="form-control form-control-lg" id="referencia" placeholder="Descripcion corta">
-                </div>
-                <div class="col-lg-2">
-                    <label for="cantidad" class="form-label fw-semibold"><i class="fas fa-hashtag me-2 text-primary"></i>Cantidad</label>
-                    <input type="number" class="form-control form-control-lg" id="cantidad" min="0.01" step="0.01" placeholder="0.00">
-                </div>
-                <div class="col-lg-2 d-flex align-items-end">
-                    <button type="button" class="btn btn-outline-primary btn-lg w-100" id="btnAgregarProducto"><i class="fas fa-plus me-2"></i>Agregar</button>
-                </div>
-
-                <div class="col-lg-3">
-                    <label for="precio" class="form-label fw-semibold"><i class="fas fa-dollar-sign me-2 text-primary"></i>Precio Unitario</label>
-                    <div class="input-group input-group-lg">
-                        <span class="input-group-text bg-light">$</span>
-                        <input type="number" step="0.01" class="form-control" id="precio" placeholder="0.00">
+    <form id="dataForm" class="ventas-register-form">
+        <div class="ventas-form-layout">
+            <div class="card border-0 shadow-sm ventas-register-card">
+                <div class="card-body">
+                    <div id="ventaFromVisitaNotice" class="alert alert-info d-none ventas-form-notice">
+                        <i class="fas fa-info-circle me-2"></i>Venta adelantada desde una visita
                     </div>
-                </div>
-                <div class="col-lg-3">
-                    <label for="abono" class="form-label fw-semibold"><i class="fas fa-hand-holding-usd me-2 text-primary"></i>Abono Inicial</label>
-                    <div class="input-group input-group-lg">
-                        <span class="input-group-text bg-light">$</span>
-                        <input type="number" step="0.01" class="form-control" id="abono" placeholder="0.00">
-                    </div>
-                </div>
-                <div class="col-lg-3">
-                    <label for="metodoPago" class="form-label fw-semibold"><i class="fas fa-credit-card me-2 text-primary"></i>Metodo de Pago</label>
-                    <select class="form-select form-select-lg" id="metodoPago">
-                        <option value="">Seleccione</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Tarjeta">Tarjeta</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Credito">Crédito</option>
-                    </select>
-                </div>
-                <div class="col-lg-3">
-                    <label for="vendedor" class="form-label fw-semibold"><i class="fas fa-user-tie me-2 text-primary"></i>Vendedor</label>
-                        <input type="text" class="form-control form-control-lg" id="vendedor" placeholder="Nombre del vendedor">
-                </div>
 
-                <div class="col-lg-4">
-                    <label for="cliente" class="form-label fw-semibold"><i class="fas fa-user me-2 text-primary"></i>Cliente</label>
-                    <input type="text" class="form-control form-control-lg" required id="cliente" placeholder="Nombre del cliente">
-                </div>
-                <div class="col-lg-4">
-                    <label for="telefono" class="form-label fw-semibold"><i class="fas fa-phone me-2 text-primary"></i>Telefono</label>
-                    <input type="text" class="form-control form-control-lg" id="telefono" placeholder="Telefono del cliente">
-                </div>
-                <div class="col-lg-4">
-                    <label for="ub" class="form-label fw-semibold"><i class="fas fa-map-marker-alt me-2 text-primary"></i>Ubicacion</label>
-                    <input type="text" class="form-control form-control-lg" required id="ub" placeholder="Direccion o ubicacion">
-                </div>
-
-                <div class="col-lg-6">
-                    <label for="fechaProgramada" class="form-label fw-semibold"><i class="fas fa-calendar-check me-2 text-primary"></i>Fecha de Programacion</label>
-                    <input type="date" class="form-control form-control-lg" required id="fechaProgramada">
-                </div>
-                <div class="col-lg-6 d-flex align-items-end">
-                    <div class="alert alert-info border-0 bg-gradient-info text-white w-100 mb-0" role="alert">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-info-circle me-3 fs-4"></i>
+                    <section class="ventas-form-section">
+                        <h6 class="ventas-section-title"><span>1</span><i class="fas fa-clipboard-list"></i>Informacion del Pedido</h6>
+                        <div class="ventas-field-grid three">
                             <div>
-                                <h6 class="mb-1 fw-bold">Informacion Importante</h6>
-                                <small>Agrega varios productos y luego registra la venta completa.</small>
+                                <label for="numeroPedido" class="form-label">No. de Pedido</label>
+                                <input type="text" class="form-control" id="numeroPedido" placeholder="Ej: P-4481">
+                            </div>
+                            <div>
+                                <label for="fecha" class="form-label">Fecha de Venta</label>
+                                <input type="date" class="form-control" required id="fecha">
+                            </div>
+                            <div>
+                                <label for="numeroRecibo" class="form-label">No. de Recibo</label>
+                                <input type="text" class="form-control" id="numeroRecibo" placeholder="Ej: R-1025">
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </section>
 
-                <div class="col-12">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-                            <span><i class="fas fa-cart-shopping me-2 text-primary"></i>Carrito temporal de productos</span>
-                            <span class="badge bg-primary" id="carritoCantidad">0</span>
+                    <section class="ventas-form-section">
+                        <h6 class="ventas-section-title"><span>2</span><i class="fas fa-user"></i>Cliente</h6>
+                        <div class="ventas-field-grid three">
+                            <div>
+                                <label for="cliente" class="form-label">Nombre del cliente</label>
+                                <input type="text" class="form-control" required id="cliente" placeholder="Buscar cliente o escribir nombre...">
+                            </div>
+                            <div>
+                                <label for="telefono" class="form-label">Telefono</label>
+                                <input type="text" class="form-control" id="telefono" placeholder="Numero de telefono">
+                            </div>
+                            <div>
+                                <label for="ub" class="form-label">Ubicacion</label>
+                                <input type="text" class="form-control" required id="ub" placeholder="Direccion o ubicacion">
+                            </div>
                         </div>
-                        <div class="card-body p-0">
+                    </section>
+
+                    <section class="ventas-form-section">
+                        <h6 class="ventas-section-title"><span>3</span><i class="fas fa-box-open"></i>Productos</h6>
+                        <div class="ventas-product-grid">
+                            <div>
+                                <label for="producto" class="form-label">Producto</label>
+                                <input type="text" class="form-control" id="producto" placeholder="Buscar producto...">
+                            </div>
+                            <div>
+                                <label for="referencia" class="form-label">Descripcion o referencia</label>
+                                <input type="text" class="form-control" id="referencia" placeholder="Descripcion corta">
+                            </div>
+                            <div>
+                                <label for="cantidad" class="form-label">Cantidad</label>
+                                <input type="number" class="form-control" id="cantidad" min="0.01" step="0.01" placeholder="0">
+                            </div>
+                            <div>
+                                <label for="precio" class="form-label">Precio unitario</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" id="precio" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="ventas-add-product">
+                                <button type="button" class="btn btn-outline-primary w-100" id="btnAgregarProducto"><i class="fas fa-plus me-2"></i>Agregar producto</button>
+                            </div>
+                        </div>
+
+                        <div class="ventas-cart-panel">
                             <div class="table-responsive">
-                                <table class="table table-hover mb-0 align-middle">
-                                    <thead class="table-light">
+                                <table class="table table-hover mb-0 align-middle ventas-cart-table">
+                                    <thead>
                                         <tr>
                                             <th>Producto</th>
                                             <th>Descripcion</th>
-                                            <th>Cantidad</th>
-                                            <th>Precio</th>
-                                            <th>Subtotal</th>
-                                            <th>Eliminar</th>
+                                            <th class="text-end">Cantidad</th>
+                                            <th class="text-end">Precio</th>
+                                            <th class="text-end">Descuento</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-end">Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody id="carritoVentasBody">
-                                        <tr><td colspan="6" class="text-center text-muted">No hay productos agregados</td></tr>
+                                        <tr><td colspan="7" class="text-center text-muted">No hay productos agregados</td></tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                        <div class="card-footer d-flex justify-content-end">
-                            <h5 class="mb-0">Total general: <span id="carritoTotalGeneral">$0</span></h5>
+                    </section>
+
+                    <section class="ventas-form-section">
+                        <h6 class="ventas-section-title"><span>4</span><i class="fas fa-credit-card"></i>Pago y Venta</h6>
+                        <div class="ventas-field-grid four">
+                            <div>
+                                <label for="metodoPago" class="form-label">Metodo de pago</label>
+                                <select class="form-select" id="metodoPago">
+                                    <option value="">Seleccionar metodo</option>
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Tarjeta">Tarjeta</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="vendedor" class="form-label">Vendedor</label>
+                                <select class="form-select" id="vendedor">
+                                    <option value="">Seleccionar vendedor</option>
+                                    <option value="Beatriz Elena">Beatriz Elena</option>
+                                    <option value="Lizeth Dahiana">Lizeth Dahiana</option>
+                                    <option value="Jorge Valencia">Jorge Valencia</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                                <input type="text" class="form-control mt-2 d-none" id="vendedorOtro" placeholder="Nombre del vendedor">
+                            </div>
+                            <div>
+                                <label for="abono" class="form-label">Abono inicial</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" id="abono" placeholder="0">
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="ventas-form-section">
+                        <h6 class="ventas-section-title"><span>5</span><i class="fas fa-calendar-check"></i>Programacion</h6>
+                        <div class="ventas-field-grid single">
+                            <div>
+                                <label for="fechaProgramada" class="form-label">Fecha de programacion</label>
+                                <input type="date" class="form-control" required id="fechaProgramada">
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="ventas-form-actions">
+                        <button type="reset" class="btn btn-outline-secondary"><i class="fas fa-eraser me-2"></i>Limpiar formulario</button>
+                        <button type="button" class="btn btn-outline-dark btn-cancel-form" data-target-view="ventas-historial"><i class="fas fa-xmark me-2"></i>Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Registrar Venta</button>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="ventas-summary-card card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="ventas-summary-title"><i class="fas fa-receipt"></i>Resumen de Venta</h6>
+                    <div class="ventas-summary-list">
+                        <div><span>Productos</span><strong id="carritoCantidad">0</strong></div>
+                        <div><span>Subtotal</span><strong id="carritoSubtotalGeneral">$0</strong></div>
+                        <div><span>Descuento general</span><strong class="text-danger" id="carritoDescuentoGeneral">$0</strong></div>
+                    </div>
+                    <div class="ventas-summary-total">
+                        <span>Total a pagar</span>
+                        <strong id="carritoTotalGeneral">$0</strong>
+                    </div>
+                    <div class="ventas-summary-info">
+                        <i class="fas fa-info-circle"></i>
+                        <div>
+                            <strong>Informacion</strong>
+                            <small>Revisa los datos antes de registrar la venta.</small>
                         </div>
                     </div>
-                </div>
-
-                <div class="col-12">
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="reset" class="btn btn-outline-secondary btn-lg px-4 me-md-2"><i class="fas fa-eraser me-2"></i>Limpiar</button>
-                        <button type="button" class="btn btn-outline-dark btn-lg px-4 btn-cancel-form" data-target-view="ventas-historial"><i class="fas fa-arrow-left me-2"></i>Cancelar</button>
-                        <button type="submit" class="btn btn-primary btn-lg px-4"><i class="fas fa-save me-2"></i>Registrar Venta</button>
+                    <div class="ventas-quick-actions">
+                        <span>Acciones rapidas</span>
+                        <button type="button"><i class="fas fa-file-lines"></i>Guardar como borrador</button>
+                        <button type="button"><i class="fas fa-print"></i>Imprimir proforma</button>
+                        <button type="button"><i class="fas fa-clock-rotate-left"></i>Ver historial del cliente</button>
                     </div>
                 </div>
-            </form>
+            </aside>
         </div>
-    </div>
-    </div>
+    </form>
 
     <div class="card-body pt-3 pb-0 px-0 d-none">
         <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive">
@@ -175,6 +216,7 @@
                             <th>Cantidad</th>
                             <th>Precio</th>
                             <th>Abono</th>
+                            <th>Descuento</th>
                             <th>Metodo</th>
                             <th>Vendedor</th>
                             <th>Cliente</th>
@@ -229,8 +271,8 @@
                         <div class="col-12"><label for="editVentaReferencia" class="form-label fw-semibold">Descripcion</label><input type="text" class="form-control" id="editVentaReferencia"></div>
                         <div class="col-md-4"><label for="editVentaPrecio" class="form-label fw-semibold">Precio</label><input type="number" min="0" step="0.01" class="form-control" id="editVentaPrecio"></div>
                         <div class="col-md-4"><label for="editVentaAbono" class="form-label fw-semibold">Abono</label><input type="number" min="0" step="0.01" class="form-control" id="editVentaAbono"></div>
-                        <div class="col-md-4"><label for="editVentaMetodoPago" class="form-label fw-semibold">Metodo de Pago</label><select class="form-select" id="editVentaMetodoPago"><option value="">Seleccione</option><option value="Efectivo">Efectivo</option><option value="Tarjeta">Tarjeta</option><option value="Transferencia">Transferencia</option><option value="Credito">Crédito</option></select></div>
-                        <div class="col-md-6"><label for="editVentaVendedor" class="form-label fw-semibold">Vendedor</label><select class="form-select" id="editVentaVendedor"><option value="">Seleccione</option><option value="Mateo">Mateo</option><option value="Marina">Marina</option><option value="Alcop">Alcop</option><option value="Alba">Alba</option><option value="Yovany">Yovany</option></select></div>
+                        <div class="col-md-4"><label for="editVentaMetodoPago" class="form-label fw-semibold">Metodo de Pago</label><select class="form-select" id="editVentaMetodoPago"><option value="">Seleccione</option><option value="Efectivo">Efectivo</option><option value="Tarjeta">Tarjeta</option><option value="Transferencia">Transferencia</option></select></div>
+                        <div class="col-md-6"><label for="editVentaVendedor" class="form-label fw-semibold">Vendedor</label><select class="form-select" id="editVentaVendedor"><option value="">Seleccione</option><option value="Beatriz Elena">Beatriz Elena</option><option value="Lizeth Dahiana">Lizeth Dahiana</option><option value="Jorge Valencia">Jorge Valencia</option><option value="Alfombrando">Alfombrando</option><option value="Otro">Otro</option></select><input type="text" class="form-control mt-2 d-none" id="editVentaVendedorOtro" placeholder="Nombre del vendedor"></div>
                         <div class="col-md-6"><label for="editVentaTelefono" class="form-label fw-semibold">Telefono</label><input type="text" class="form-control" id="editVentaTelefono"></div>
                         <div class="col-md-6"><label for="editVentaFechaProgramada" class="form-label fw-semibold">Fecha Programacion</label><input type="date" class="form-control" id="editVentaFechaProgramada"></div>
                     </div>
@@ -243,5 +285,3 @@
         </div>
     </div>
 </div>
-
-

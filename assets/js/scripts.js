@@ -47,14 +47,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const txt = (s) => String(s || "").trim();
   const esAdmin = () => leerUsuario().rol === "admin";
   const esEmpleado = () => leerUsuario().rol === "empleado";
-  const esSoloConsulta = () => esAdmin();
-  const puedeOperar = () => esEmpleado();
+  const esSoloConsulta = () => esEmpleado();
+  const puedeOperar = () => esAdmin();
   window.esAdmin = esAdmin;
   window.esEmpleado = esEmpleado;
   window.puedeOperar = puedeOperar;
   const avisarSoloConsulta = () => {
-    if (typeof alertx === "function") alertx("El acceso admin es solo para consulta y analisis.", "info");
-    else window.alert("El acceso admin es solo para consulta y analisis.");
+    if (typeof alertx === "function") alertx("Solo el administrador puede realizar operaciones de edición.", "info");
+    else window.alert("Solo el administrador puede realizar operaciones de edición.");
   };
   const validarPermisoOperacion = () => {
     if (puedeOperar()) return true;
@@ -123,9 +123,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     efectivo: "Efectivo",
     tarjeta: "Tarjeta",
     transferencia: "Transferencia",
-    "Credito": "Crédito",
-    credito: "Crédito",
-    crédito: "Crédito",
+    Credito: "Credito",
+    credito: "Credito",
+    "crÃ©dito": "Credito",
     tranferencia: "Transferencia"
   };
   const normalizarMetodoPagoVenta = (raw) => {
@@ -184,6 +184,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     return "";
   };
+  const normalizeUiText = (value) => String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  const containsUiText = (haystack, needle) => !needle || normalizeUiText(haystack).includes(needle);
+  const monthShift = (shift = 0) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + shift);
+    return d.toISOString().slice(0, 7);
+  };
+  const matchesMonthFilter = (dateValue, period, monthValue) => {
+    if (!period || period === "todos") return true;
+    const month = String(dateValue || "").slice(0, 7);
+    if (!month) return false;
+    if (period === "mes_actual") return month === monthShift(0);
+    if (period === "mes_anterior") return month === monthShift(-1);
+    if (period === "mes_especifico") return month === String(monthValue || "");
+    return true;
+  };
+  const setMonthVisibility = (periodId, monthId) => {
+    const period = q(periodId)?.value || "todos";
+    const month = q(monthId);
+    if (month) month.classList.toggle("d-none", period !== "mes_especifico");
+  };
+  const fillSelectOptions = (selectEl, values, allLabel) => {
+    if (!selectEl || selectEl.dataset.ready) return;
+    const current = selectEl.value || "todos";
+    selectEl.innerHTML = `<option value="todos">${allLabel}</option>` + values
+      .filter(Boolean)
+      .map((value) => `<option value="${String(value)}">${String(value)}</option>`)
+      .join("");
+    selectEl.value = [...selectEl.options].some((opt) => opt.value === current) ? current : "todos";
+    selectEl.dataset.ready = "1";
+  };
+  const statusBadge = (label, tone = "pending") => `<span class="ventas-status-badge is-${tone}">${label}</span>`;
+  const detailGrid = (items = []) => `<div class="venta-detail-grid mb-3">${items.map(([label, value]) => `<div><span>${label}</span><strong>${value || "-"}</strong></div>`).join("")}</div>`;
   const getPedidoId = (row) => {
     const raw = val(row, "pedido_id", "pedidoId", "num_pedido", "numero_pedido", "numeroPedido");
     return String(raw || "").trim();
@@ -196,7 +233,69 @@ document.addEventListener("DOMContentLoaded", async () => {
   const normalizarAbonoVenta = (abono, total) => {
     const totalSeguro = Math.max(Number(total || 0), 0);
     const abonoSeguro = Math.max(Number(abono || 0), 0);
-    return Math.min(abonoSeguro, totalSeguro);
+    return Math.round(Math.min(abonoSeguro, totalSeguro) * 100) / 100;
+  };
+  const roundMoney2 = (value) => Math.round(Number(value || 0) * 100) / 100;
+  const roundPrice4 = (value) => Math.round(Number(value || 0) * 10000) / 10000;
+  const distribuirDescuentoVenta = (items = [], descuentoGeneral = 0) => {
+    const itemsBase = items.map((item) => {
+      const cantidad = Number(item.cantidad || 0);
+      const precio = Number(item.precio || 0);
+      const descuento = roundMoney2(Math.max(Number(item.descuento || 0), 0));
+      const subtotal = roundMoney2(cantidad * precio);
+      const descuentoProductoAplicado = Math.min(descuento, subtotal);
+      const subtotalConDescuentoProducto = roundMoney2(Math.max(subtotal - descuentoProductoAplicado, 0));
+      return {
+        ...item,
+        cantidad,
+        precio,
+        descuento,
+        subtotal,
+        descuentoProductoAplicado,
+        descuentoGeneralAplicado: 0,
+        descuentoAplicado: descuentoProductoAplicado,
+        subtotalFinal: subtotalConDescuentoProducto,
+        precioFinal: cantidad > 0 ? roundPrice4(subtotalConDescuentoProducto / cantidad) : 0
+      };
+    });
+    const subtotal = roundMoney2(itemsBase.reduce((s, item) => s + Number(item.subtotal || 0), 0));
+    const descuentoProductos = roundMoney2(itemsBase.reduce((s, item) => s + Number(item.descuentoProductoAplicado || 0), 0));
+    const subtotalDespuesProductos = roundMoney2(itemsBase.reduce((s, item) => s + Number(item.subtotalFinal || 0), 0));
+    const descuentoGeneralAplicable = roundMoney2(Math.min(Math.max(Number(descuentoGeneral || 0), 0), subtotalDespuesProductos));
+    let restanteGeneral = descuentoGeneralAplicable;
+    const ultimoConTotal = itemsBase.map((item, idx) => item.subtotalFinal > 0 ? idx : -1).filter((idx) => idx >= 0).pop();
+    const itemsFinales = itemsBase.map((item, idx) => {
+      const descuentoProporcional = subtotalDespuesProductos > 0
+        ? roundMoney2(descuentoGeneralAplicable * (item.subtotalFinal / subtotalDespuesProductos))
+        : 0;
+      const descuentoGeneralItem = idx === ultimoConTotal
+        ? Math.min(restanteGeneral, item.subtotalFinal)
+        : Math.min(descuentoProporcional, item.subtotalFinal, restanteGeneral);
+      restanteGeneral = roundMoney2(restanteGeneral - descuentoGeneralItem);
+      const descuentoAplicado = roundMoney2(Number(item.descuentoProductoAplicado || 0) + descuentoGeneralItem);
+      const subtotalFinal = roundMoney2(Math.max(item.subtotal - descuentoAplicado, 0));
+      const precioFinal = item.cantidad > 0 ? roundPrice4(subtotalFinal / item.cantidad) : 0;
+      return {
+        ...item,
+        descuentoGeneralAplicado: descuentoGeneralItem,
+        descuentoAplicado,
+        subtotalFinal,
+        precioFinal
+      };
+    });
+    const descuento = roundMoney2(descuentoProductos + descuentoGeneralAplicable);
+    const total = roundMoney2(itemsFinales.reduce((s, item) => s + Number(item.subtotalFinal || 0), 0));
+
+    return {
+      subtotal,
+      descuento,
+      total,
+      items: itemsFinales
+    };
+  };
+  const calcularSaldoVenta = (total, abono) => {
+    const saldo = Math.round((Number(total || 0) - Number(abono || 0)) * 100) / 100;
+    return saldo < 1 ? 0 : saldo;
   };
   const agruparVentasPorPedido = (rows = []) => {
     const grouped = new Map();
@@ -227,6 +326,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ubicacion: val(v, "ubicacion_cliente", "ub") || "-",
           fechaProgramacion: val(v, "fecha_programacion", "fecha_programada", "fechaProgramada") || "-",
           vendedor: val(v, "vendedor") || "-",
+          prioridad: val(v, "prioridad", "priority") || "",
           metodoPago: normalizarMetodoPagoVenta(val(v, "metodo_pago", "metodoPago")) || "-",
           numeroCartera: val(v, "numero_cartera", "numeroCartera") || "-",
           metodoCartera: metodoCartera || "-",
@@ -248,6 +348,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (descripcion && !g.descripciones.includes(descripcion)) g.descripciones.push(descripcion);
       if (!g.numeroCartera || g.numeroCartera === "-") g.numeroCartera = val(v, "numero_cartera", "numeroCartera") || "-";
       if (metodoCartera) g.metodoCartera = metodoCartera;
+      if (!g.prioridad) g.prioridad = val(v, "prioridad", "priority") || "";
       g.items.push({
         producto,
         descripcion,
@@ -262,7 +363,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return {
         ...g,
         abono,
-        saldo: Math.max(Number(g.total || 0) - Number(abono || 0), 0)
+        saldo: calcularSaldoVenta(g.total, abono)
       };
     });
   };
@@ -404,7 +505,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Titulo por defecto
     return s.split(" ").map((w) => w ? `${w[0].toUpperCase()}${w.slice(1)}` : "").join(" ");
   };
-  const chartPalette = ["#30343b", "#58738f", "#b08b59", "#8b5d4b", "#6f6079", "#9a907f", "#495260", "#c39d69", "#7b838c", "#a66d5c"];
+  const chartPalette = ["#2563eb", "#10b981", "#f59e0b", "#64748b", "#94a3b8"];
   const numeroInstalador = "3106128451";
   const abrirWhatsApp = (numero, mensaje) => {
     const numLimpio = String(numero || "").replace(/\D/g, "");
@@ -422,7 +523,7 @@ Producto/Servicio: ${producto}
 
 Nuestro equipo se comunicará con usted el día anterior a la instalación para confirmar la hora exacta y resolver cualquier duda.
 
-Gracias por confiar en nuestro servicio. Estamos comprometidos con ofrecerle una atención profesional y de calidad.`;
+Gracias por confiar en nuestro servicio. Estamos comprometidos con ofrecerle una atencion profesional y de calidad.`;
   };
   const mensajeInstalador = (cliente, telefono, ubicacion, producto, fecha) => {
     return `NUEVA INSTALACION PROGRAMADA
@@ -487,12 +588,12 @@ Gracias por su compromiso y profesionalismo.`;
     return `${base}${detalle}${hint ? ` ${hint}` : ""}`;
   };
   window.editar = (fn) => {
-    if (!validarPermisoOperacion()) return false;
+    if (!validarPermisoAdmin()) return false;
     if (typeof fn === "function") fn();
     return true;
   };
   window.cancelarPedido = async (pedidoId) => {
-    if (!validarPermisoOperacion()) return false;
+    if (!validarPermisoAdmin()) return false;
     const pedido = txt(pedidoId);
     if (!pedido) {
       window.alert("Debes indicar el numero de pedido");
@@ -720,11 +821,15 @@ Gracias por su compromiso y profesionalismo.`;
   async function modVentas() {
     await load("ventas");
     const form = q("#dataForm"), body = q("#datatablesSimple tbody");
-    if (!form || !body) return;
+    if (!body) return;
     const visitaPrefillKey = "visitaParaVenta";
     const visitaNotice = q("#ventaFromVisitaNotice");
     const btnAgregar = q("#btnAgregarProducto");
     const carritoBody = q("#carritoVentasBody");
+    const descuentoProductoInput = q("#descuentoProducto");
+    const descuentoGeneralInput = q("#descuentoGeneralVenta");
+    const carritoSubtotalEl = q("#carritoSubtotalGeneral");
+    const carritoDescuentoEl = q("#carritoDescuentoGeneral");
     const carritoTotalEl = q("#carritoTotalGeneral");
     const carritoCantidadEl = q("#carritoCantidad");
     let carritoProductos = [];
@@ -733,8 +838,9 @@ Gracias por su compromiso y profesionalismo.`;
     let pedidoEditOriginal = "";
     let editRowIds = [];
     const editStateKey = "ventaEdicion";
-    const submitBtn = form.querySelector('button[type="submit"]');
+    const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
     const btnAgregarDefault = btnAgregar ? btnAgregar.innerHTML : "";
+    const tieneFormulario = !!form;
 
     const setSubmitMode = (isEdit) => {
       modoEdicion = !!isEdit;
@@ -806,48 +912,128 @@ Gracias por su compromiso y profesionalismo.`;
 
     const renderCarrito = () => {
       if (!carritoBody) return;
+      const resumen = distribuirDescuentoVenta(carritoProductos, Number(descuentoGeneralInput?.value || 0));
       if (!carritoProductos.length) {
-        carritoBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay productos agregados</td></tr>';
+        carritoBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay productos agregados</td></tr>';
       } else {
-        carritoBody.innerHTML = carritoProductos.map((item, i) =>
-          `<tr data-i="${i}" class="${i === editItemIndex ? "table-info" : ""}"><td>${item.producto}</td><td>${item.descripcion || "-"}</td><td>${fmtQty(item.cantidad)}</td><td>${money(item.precio)}</td><td>${money(item.subtotal)}</td><td><button type="button" class="btn btn-sm btn-outline-danger quitar-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></td></tr>`
+        carritoBody.innerHTML = resumen.items.map((item, i) =>
+          `<tr data-i="${i}" class="${i === editItemIndex ? "table-info" : ""}"><td>${item.producto}</td><td>${item.descripcion || "-"}</td><td>${fmtQty(item.cantidad)}</td><td>${money(item.precio)}</td><td>${money(item.descuentoAplicado)}</td><td>${money(item.subtotalFinal)}</td><td><button type="button" class="btn btn-sm btn-outline-danger quitar-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></td></tr>`
         ).join("");
       }
-      const total = carritoProductos.reduce((s, x) => s + Number(x.subtotal || 0), 0);
-      if (carritoTotalEl) carritoTotalEl.textContent = money(total);
+      if (carritoSubtotalEl) carritoSubtotalEl.textContent = money(resumen.subtotal);
+      if (carritoDescuentoEl) carritoDescuentoEl.textContent = money(resumen.descuento);
+      if (carritoTotalEl) carritoTotalEl.textContent = money(resumen.total);
       if (carritoCantidadEl) carritoCantidadEl.textContent = fmtInt(carritoProductos.length);
     };
 
     const limpiarCarrito = () => {
       carritoProductos = [];
+      if (descuentoGeneralInput) descuentoGeneralInput.value = "";
       clearItemEdit();
       renderCarrito();
     };
 
+    const itemVentaKey = (item = {}) => [
+      txt(item.producto).toLowerCase(),
+      txt(item.descripcion).toLowerCase(),
+      Number(item.precio || 0).toFixed(2),
+      Number(item.descuento || 0).toFixed(2)
+    ].join("|");
+    const recalcularItemVenta = (item) => {
+      item.cantidad = Number(item.cantidad || 0);
+      item.precio = Number(item.precio || 0);
+      item.descuento = roundMoney2(Math.max(Number(item.descuento || 0), 0));
+      item.subtotal = item.cantidad * item.precio;
+      return item;
+    };
+    const agregarOMezclarItemVenta = (payload, indexIgnorado = null) => {
+      const key = itemVentaKey(payload);
+      const existenteIndex = carritoProductos.findIndex((item, idx) => idx !== indexIgnorado && itemVentaKey(item) === key);
+      if (existenteIndex >= 0) {
+        carritoProductos[existenteIndex].cantidad = Number(carritoProductos[existenteIndex].cantidad || 0) + Number(payload.cantidad || 0);
+        recalcularItemVenta(carritoProductos[existenteIndex]);
+        return true;
+      }
+      carritoProductos.push(recalcularItemVenta(payload));
+      return false;
+    };
+    const mezclarItemVentaEditado = (payload, indexEditado) => {
+      const key = itemVentaKey(payload);
+      const existenteIndex = carritoProductos.findIndex((item, idx) => idx !== indexEditado && itemVentaKey(item) === key);
+      if (existenteIndex >= 0) {
+        carritoProductos[existenteIndex].cantidad = Number(carritoProductos[existenteIndex].cantidad || 0) + Number(payload.cantidad || 0);
+        recalcularItemVenta(carritoProductos[existenteIndex]);
+        carritoProductos.splice(indexEditado, 1);
+        return true;
+      }
+      carritoProductos[indexEditado] = recalcularItemVenta(payload);
+      return false;
+    };
+    const compactarItemsVenta = (items = []) => {
+      const compactados = [];
+      items.forEach((item) => {
+        const payload = recalcularItemVenta({ ...item });
+        const key = itemVentaKey(payload);
+        const existente = compactados.find((x) => itemVentaKey(x) === key);
+        if (existente) {
+          existente.cantidad = Number(existente.cantidad || 0) + Number(payload.cantidad || 0);
+          recalcularItemVenta(existente);
+        } else {
+          compactados.push(payload);
+        }
+      });
+      return compactados;
+    };
+
+    const loadEditState = () => {
+      const raw = localStorage.getItem(editStateKey);
+      if (!raw) return;
+      try {
+        const payload = JSON.parse(raw);
+        applyEditState(payload);
+      } catch (_) {
+        localStorage.removeItem(editStateKey);
+      }
+    };
+
+    if (form) {
     if (btnAgregar && !btnAgregar.dataset.bound) {
       btnAgregar.addEventListener("click", () => {
-        const producto = txt(q("#producto")?.value);
-        const descripcion = txt(q("#referencia")?.value);
-        const cantidad = Number(q("#cantidad")?.value || 0);
-        const precio = Number(q("#precio")?.value || 0);
-        if (!producto) return alertx("Debes ingresar el nombre del producto antes de agregarlo.", "warning");
-        if (!cantidad || cantidad <= 0) return alertx("La cantidad debe ser mayor a cero.", "warning");
-        if (!precio || precio <= 0) return alertx("El precio debe ser mayor a cero.", "warning");
-        const payload = { producto, descripcion, cantidad, precio, subtotal: cantidad * precio };
-        if (editItemIndex != null) {
-          carritoProductos[editItemIndex] = payload;
-          clearItemEdit();
-          alertx("El producto se actualizo correctamente en el carrito.", "success");
-        } else {
-          if (!carritoProductos.length) ensurePedidoId();
-          carritoProductos.push(payload);
-          alertx("El producto se agrego correctamente al carrito.", "success");
+        if (btnAgregar.dataset.processing === "1") return;
+        btnAgregar.dataset.processing = "1";
+        btnAgregar.disabled = true;
+        try {
+          const producto = txt(q("#producto")?.value);
+          const descripcion = txt(q("#referencia")?.value);
+          const cantidad = Number(q("#cantidad")?.value || 0);
+          const precio = Number(q("#precio")?.value || 0);
+          const descuento = Number(descuentoProductoInput?.value || 0);
+          if (!producto) return alertx("Debes ingresar el nombre del producto antes de agregarlo.", "warning");
+          if (!cantidad || cantidad <= 0) return alertx("La cantidad debe ser mayor a cero.", "warning");
+          if (!precio || precio <= 0) return alertx("El precio debe ser mayor a cero.", "warning");
+          if (descuento < 0) return alertx("El descuento por producto no puede ser negativo.", "warning");
+          const payload = { producto, descripcion, cantidad, precio, descuento, subtotal: cantidad * precio };
+          if (editItemIndex != null) {
+            const merged = mezclarItemVentaEditado(payload, editItemIndex);
+            clearItemEdit();
+            alertx(merged ? "El producto se unifico con uno igual en el carrito." : "El producto se actualizo correctamente en el carrito.", "success");
+          } else {
+            if (!carritoProductos.length) ensurePedidoId();
+            const merged = agregarOMezclarItemVenta(payload);
+            alertx(merged ? "El producto ya existia: se sumo la cantidad." : "El producto se agrego correctamente al carrito.", "success");
+          }
+          if (q("#producto")) q("#producto").value = "";
+          if (q("#referencia")) q("#referencia").value = "";
+          if (q("#cantidad")) q("#cantidad").value = "";
+          if (q("#precio")) q("#precio").value = "";
+          if (descuentoProductoInput) descuentoProductoInput.value = "";
+          renderCarrito();
+        } finally {
+          setTimeout(() => {
+            delete btnAgregar.dataset.processing;
+            btnAgregar.disabled = false;
+          }, 350);
         }
-        if (q("#producto")) q("#producto").value = "";
-        if (q("#referencia")) q("#referencia").value = "";
-        if (q("#cantidad")) q("#cantidad").value = "";
-        if (q("#precio")) q("#precio").value = "";
-        renderCarrito();
       });
       btnAgregar.dataset.bound = "1";
     }
@@ -871,6 +1057,7 @@ Gracias por su compromiso y profesionalismo.`;
         if (q("#referencia")) q("#referencia").value = item.descripcion || "";
         if (q("#cantidad")) q("#cantidad").value = Number(item.cantidad || 0);
         if (q("#precio")) q("#precio").value = Number(item.precio || 0);
+        if (descuentoProductoInput) descuentoProductoInput.value = Number(item.descuento || 0);
         editItemIndex = i;
         setAgregarMode(true);
         renderCarrito();
@@ -878,27 +1065,42 @@ Gracias por su compromiso y profesionalismo.`;
       carritoBody.dataset.bound = "1";
     }
 
+    if (descuentoGeneralInput && !descuentoGeneralInput.dataset.bound) {
+      descuentoGeneralInput.addEventListener("input", renderCarrito);
+      descuentoGeneralInput.dataset.bound = "1";
+    }
+
     const buildPayloadItems = (pedidoId) => {
       const fecha = q("#fecha").value;
       const numeroRecibo = txt(q("#numeroRecibo")?.value);
-      const totalPedido = carritoProductos.reduce((s, item) => s + (Number(item.cantidad || 0) * Number(item.precio || 0)), 0);
+      const descuentoGeneral = Number(descuentoGeneralInput?.value || 0);
+      if (descuentoGeneral < 0) throw new Error("El descuento general no puede ser negativo.");
+      const resumenSinGeneral = distribuirDescuentoVenta(carritoProductos);
+      if (descuentoGeneral > resumenSinGeneral.total) {
+        throw new Error("El descuento general no puede superar el total despues de los descuentos por producto.");
+      }
+      const resumen = distribuirDescuentoVenta(carritoProductos, descuentoGeneral);
+      const totalPedido = resumen.total;
       const abonoIngresado = Number(q("#abono").value || 0);
       if (abonoIngresado > totalPedido) throw new Error("El abono inicial no puede superar el total del pedido.");
       const abono = normalizarAbonoVenta(abonoIngresado, totalPedido);
       const metodoPago = q("#metodoPago").value;
-      const vendedor = q("#vendedor").value;
+      // Usar vendedorOtro si está seleccionado "Otro", de lo contrario usar el valor del select
+      const vendedorSelect = q("#vendedor").value;
+      const vendedorOtroInput = q("#vendedorOtro")?.value;
+      const vendedor = vendedorSelect === "Otro" && vendedorOtroInput ? vendedorOtroInput : vendedorSelect;
       const cliente = q("#cliente").value;
       const telefono = txt(q("#telefono")?.value);
       const ubicacion = q("#ub").value;
       const fechaProgramada = q("#fechaProgramada").value;
-      return carritoProductos.map((item, idx) => ({
+      return resumen.items.map((item, idx) => ({
         fecha,
         numero_recibo: numeroRecibo,
         numero_pedido: pedidoId,
         producto: item.producto,
         descripcion: item.descripcion,
         cantidad: item.cantidad,
-        precio: item.precio,
+        precio: item.precioFinal,
         abono: idx === 0 ? abono : 0,
         metodo_pago: metodoPago,
         vendedor,
@@ -906,8 +1108,48 @@ Gracias por su compromiso y profesionalismo.`;
         telefono,
         ubicacion_cliente: ubicacion,
         fecha_programacion: fechaProgramada,
-        total: item.cantidad * item.precio
+        total: item.subtotalFinal
       }));
+    };
+
+    const buildEditPayloadFromRows = (rows = [], pedidoId) => {
+      if (!Array.isArray(rows) || !rows.length) return null;
+      const numeroPedido = pedidoId || txt(getPedidoId(rows[0]));
+      const fecha = val(rows[0], "fecha") || today();
+      const numeroRecibo = val(rows[0], "numero_recibo", "numeroRecibo") || "";
+      const metodoPago = val(rows[0], "metodo_pago", "metodoPago") || "";
+      const vendedor = val(rows[0], "vendedor") || "";
+      const cliente = val(rows[0], "cliente") || "";
+      const telefono = val(rows[0], "telefono") || "";
+      const ubicacion = val(rows[0], "ubicacion_cliente", "ubicacion", "ub") || "";
+      const fechaProgramada = val(rows[0], "fecha_programacion", "fechaProgramada") || "";
+      const items = rows.map((r) => ({
+        producto: val(r, "producto") || "",
+        descripcion: val(r, "descripcion", "referencia") || "",
+        cantidad: Number(val(r, "cantidad") || 0),
+        precio: Number(val(r, "precio") || 0),
+        descuento: Number(val(r, "descuento") || 0),
+        subtotal: Number(val(r, "total") || val(r, "subtotal") || 0)
+      }));
+      const total = items.reduce((s, it) => s + Number(it.subtotal || 0), 0);
+      const maxAbono = rows.reduce((m, r) => Math.max(m, Number(val(r, "abono") || 0)), 0);
+      const abono = normalizarAbonoVenta(maxAbono, total);
+      const rowIds = rows.map((r) => r.id).filter((id) => id != null);
+      return {
+        pedidoId: numeroPedido,
+        numeroPedido: numeroPedido,
+        fecha,
+        numeroRecibo,
+        abono,
+        metodoPago,
+        vendedor,
+        cliente,
+        telefono,
+        ubicacion,
+        fechaProgramada,
+        items,
+        rowIds
+      };
     };
 
     const applyEditState = (payload) => {
@@ -924,7 +1166,7 @@ Gracias por su compromiso y profesionalismo.`;
       if (q("#telefono")) q("#telefono").value = payload.telefono || "";
       if (q("#ub")) q("#ub").value = payload.ubicacion || "";
       if (q("#fechaProgramada")) q("#fechaProgramada").value = payload.fechaProgramada || "";
-      carritoProductos = (payload.items || []).map((item) => {
+      carritoProductos = compactarItemsVenta((payload.items || []).map((item) => {
         const cantidad = Number(item.cantidad || 0);
         const precio = Number(item.precio || 0);
         return {
@@ -932,50 +1174,16 @@ Gracias por su compromiso y profesionalismo.`;
           descripcion: item.descripcion || "",
           cantidad,
           precio,
+          descuento: Number(item.descuento || 0),
           subtotal: cantidad * precio
         };
-      });
+      }));
       setSubmitMode(true);
       clearItemEdit();
       renderCarrito();
       alertx("El pedido se cargo para edicion. Ya puedes ajustar sus datos.", "info");
     };
 
-    const loadEditState = () => {
-      const raw = localStorage.getItem(editStateKey);
-      if (!raw) return;
-      try {
-        const payload = JSON.parse(raw);
-        applyEditState(payload);
-      } catch (_) {
-        localStorage.removeItem(editStateKey);
-      }
-    };
-    const buildEditPayloadFromRows = (rows = [], pedidoIdHint = "") => {
-      if (!rows.length) return null;
-      const base = rows[0];
-      const pedidoId = pedidoIdHint || getPedidoId(base);
-      return {
-        pedidoId: pedidoId || "",
-        rowIds: rows.map((r) => r.id).filter((x) => x != null),
-        fecha: val(base, "fecha") || today(),
-        numeroRecibo: val(base, "numero_recibo", "numeroRecibo") || "",
-        numeroPedido: pedidoId || "",
-        abono: Number(val(base, "abono") || 0),
-        metodoPago: val(base, "metodo_pago", "metodoPago") || "",
-        vendedor: val(base, "vendedor") || "",
-        cliente: val(base, "cliente") || "",
-        telefono: val(base, "telefono") || "",
-        ubicacion: val(base, "ubicacion_cliente", "ub") || "",
-        fechaProgramada: val(base, "fecha_programacion", "fecha_programada", "fechaProgramada") || "",
-        items: rows.map((r) => ({
-          producto: val(r, "producto") || "",
-          descripcion: val(r, "descripcion", "referencia") || "",
-          cantidad: Number(val(r, "cantidad") || 0),
-          precio: Number(val(r, "precio") || 0)
-        }))
-      };
-    };
     const buscarPedidoEnLocalStorage = (pedidoId) => {
       try {
         const base = JSON.parse(localStorage.getItem("ventas") || "[]");
@@ -988,9 +1196,16 @@ Gracias por su compromiso y profesionalismo.`;
 
     form.onsubmit = async (e) => {
       e.preventDefault();
-      if (!carritoProductos.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
+      if (form.dataset.saving === "1") return;
+      form.dataset.saving = "1";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+      }
+      if (btnAgregar) btnAgregar.disabled = true;
       try {
-        if (!validarPermisoOperacion()) return;
+        if (!carritoProductos.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
+        if (modoEdicion && !validarPermisoAdmin()) return;
         const pedidoIdActual = txt(q("#numeroPedido")?.value) || ensurePedidoId();
         const existeEnEstado = st.ventas.filter((x) => txt(getPedidoId(x)) === pedidoIdActual);
         const existeEnLocal = buscarPedidoEnLocalStorage(pedidoIdActual);
@@ -1044,6 +1259,13 @@ Gracias por su compromiso y profesionalismo.`;
         if (wasEdit) change("ventas-historial");
       } catch (err) {
         alertx(errEs("No fue posible guardar la venta.", err), "error");
+      } finally {
+        delete form.dataset.saving;
+        if (btnAgregar) btnAgregar.disabled = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          setSubmitMode(modoEdicion);
+        }
       }
     };
 
@@ -1062,11 +1284,12 @@ Gracias por su compromiso y profesionalismo.`;
       });
       btnCancelar.dataset.boundClearEdit = "1";
     }
+    }
     if (!ventasEditClickBound) {
       document.addEventListener("click", async (e) => {
         const btn = e.target.closest(".edit-venta-btn");
         if (!btn) return;
-        if (!validarPermisoOperacion()) return;
+        if (!validarPermisoAdmin()) return;
         const pedidoId = txt(btn.dataset.pedido);
         const fallbackId = txt(btn.dataset.id);
         try {
@@ -1100,7 +1323,30 @@ Gracias por su compromiso y profesionalismo.`;
         const rows = (item.items || []).map((x) =>
           `<tr><td>${x.producto || "-"}</td><td>${x.descripcion || "-"}</td><td>${fmtQty(x.cantidad)}</td><td>${money(x.precio)}</td><td>${money(x.subtotal)}</td></tr>`
         ).join("");
-        const html = `<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>Producto</th><th>Descripcion</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="text-center text-muted">Sin productos</td></tr>'}</tbody></table></div>`;
+        const estado = Number(item.saldo || 0) <= 0 ? "Pagado" : "Pendiente";
+        const html = `
+          <div class="venta-detail-modal text-start">
+            <div class="venta-detail-grid mb-3">
+              <div><span>Cliente</span><strong>${item.cliente || "-"}</strong></div>
+              <div><span>Telefono</span><strong>${item.telefono || "-"}</strong></div>
+              <div><span>Ubicacion</span><strong>${item.ubicacion || "-"}</strong></div>
+              <div><span>Estado</span><strong>${estado}</strong></div>
+              <div><span>Recibo</span><strong>${item.numeroRecibo || "-"}</strong></div>
+              <div><span>Pedido</span><strong>${item.numeroPedido || "-"}</strong></div>
+              <div><span>Metodo</span><strong>${item.metodoPago || "-"}</strong></div>
+              <div><span>Vendedor</span><strong>${item.vendedor || "-"}</strong></div>
+              <div><span>Programacion</span><strong>${item.fechaProgramacion || "-"}</strong></div>
+              <div><span>Cobrado</span><strong>${money(item.abono)}</strong></div>
+              <div><span>Saldo</span><strong>${money(item.saldo)}</strong></div>
+              <div><span>Total</span><strong>${money(item.total)}</strong></div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead class="table-light"><tr><th>Producto</th><th>Descripcion</th><th class="text-end">Cantidad</th><th class="text-end">Precio</th><th class="text-end">Subtotal</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="5" class="text-center text-muted">Sin productos</td></tr>'}</tbody>
+              </table>
+            </div>
+          </div>`;
         if (window.Swal) {
           window.Swal.fire({
             title: `Detalle del pedido ${item.numeroPedido || "-"}`,
@@ -1118,7 +1364,6 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", (e) => {
         const btn = e.target.closest(".create-inst-from-sale-btn");
         if (!btn) return;
-        if (!puedeOperar()) return avisarSoloConsulta();
         const idx = Number(btn.dataset.idx);
         const item = ventasVistaCache[idx];
         if (!item) return;
@@ -1137,7 +1382,33 @@ Gracias por su compromiso y profesionalismo.`;
     }
     const filtroPeriodoVentas = q("#ventasFiltroPeriodo");
     const filtroMesVentas = q("#ventasFiltroMes");
+    const filtroVendedorVentas = q("#ventasFiltroVendedor");
+    const filtroEstadoVentas = q("#ventasFiltroEstado");
+    const filtroPrioridadVentas = q("#ventasFiltroPrioridad");
+    const buscadorVentasInput = q("#buscadorVentas");
     const btnAplicarFiltroVentas = q("#ventasAplicarFiltro");
+    const btnLimpiarFiltrosVentas = q("#ventasLimpiarFiltros");
+    const normalizarFiltroVentas = (value) => String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+    const poblarVendedoresVentas = () => {
+      if (!filtroVendedorVentas || filtroVendedorVentas.dataset.ready) return;
+      const ventasAgrupadas = agruparVentasPorPedido(st.ventas);
+      const vendedores = [...new Set(ventasAgrupadas
+        .map((v) => String(v.vendedor || "").trim())
+        .filter((v) => v && v !== "-"))].sort((a, b) => a.localeCompare(b, "es"));
+      filtroVendedorVentas.innerHTML = '<option value="todos" selected>Todos los vendedores</option>' +
+        vendedores.map((v) => `<option value="${v}">${v}</option>`).join("");
+      if (filtroPrioridadVentas) {
+        const hayPrioridad = ventasAgrupadas.some((v) => normalizarFiltroVentas(v.prioridad));
+        filtroPrioridadVentas.classList.toggle("d-none", !hayPrioridad);
+        filtroPrioridadVentas.disabled = !hayPrioridad;
+      }
+      filtroVendedorVentas.dataset.ready = "1";
+    };
+    poblarVendedoresVentas();
     if (filtroMesVentas && !filtroMesVentas.value) filtroMesVentas.value = today().slice(0, 7);
     if (filtroPeriodoVentas && !filtroPeriodoVentas.dataset.bound) {
       filtroPeriodoVentas.addEventListener("change", () => {
@@ -1159,12 +1430,80 @@ Gracias por su compromiso y profesionalismo.`;
       btnAplicarFiltroVentas.addEventListener("click", () => renderVentas());
       btnAplicarFiltroVentas.dataset.bound = "1";
     }
+    if (filtroVendedorVentas && !filtroVendedorVentas.dataset.bound) {
+      filtroVendedorVentas.addEventListener("change", () => renderVentas());
+      filtroVendedorVentas.dataset.bound = "1";
+    }
+    if (filtroEstadoVentas && !filtroEstadoVentas.dataset.bound) {
+      filtroEstadoVentas.addEventListener("change", () => renderVentas());
+      filtroEstadoVentas.dataset.bound = "1";
+    }
+    if (filtroPrioridadVentas && !filtroPrioridadVentas.dataset.bound) {
+      filtroPrioridadVentas.addEventListener("change", () => renderVentas());
+      filtroPrioridadVentas.dataset.bound = "1";
+    }
+    if (buscadorVentasInput && !buscadorVentasInput.dataset.bound) {
+      buscadorVentasInput.addEventListener("input", () => renderVentas());
+      buscadorVentasInput.dataset.bound = "1";
+    }
+    if (btnLimpiarFiltrosVentas && !btnLimpiarFiltrosVentas.dataset.bound) {
+      btnLimpiarFiltrosVentas.addEventListener("click", () => {
+        if (buscadorVentasInput) buscadorVentasInput.value = "";
+        if (filtroVendedorVentas) filtroVendedorVentas.value = "todos";
+        if (filtroEstadoVentas) filtroEstadoVentas.value = "todos";
+        if (filtroPrioridadVentas) filtroPrioridadVentas.value = "todos";
+        if (filtroPeriodoVentas) filtroPeriodoVentas.value = "todos";
+        if (filtroMesVentas) filtroMesVentas.value = today().slice(0, 7);
+        if (q("#ventasFechaDesde")) q("#ventasFechaDesde").value = "";
+        if (q("#ventasFechaHasta")) q("#ventasFechaHasta").value = "";
+        toggleCustomRangeVentas();
+        renderVentas();
+      });
+      btnLimpiarFiltrosVentas.dataset.bound = "1";
+    }
     toggleCustomRangeVentas();
-    setSubmitMode(false);
-    if (vistActual === "ventas-form") loadEditState();
-    if (!modoEdicion) aplicarPrefillDesdeVisita();
-    renderCarrito();
-    renderVentas(); buscador("buscadorVentas", "datatablesSimple"); mountTableTools("ventas");
+    // Handler para mostrar/ocultar input "Otro" en vendedor
+    const setupVendedorOtroHandler = (selectId, inputId) => {
+      const select = q(`#${selectId}`);
+      const input = q(`#${inputId}`);
+      if (!select || !input) return;
+      
+      const toggleOtroInput = () => {
+        if (select.value === "Otro") {
+          input.classList.remove("d-none");
+          input.setAttribute("required", "required");
+        } else {
+          input.classList.add("d-none");
+          input.removeAttribute("required");
+          input.value = "";
+        }
+      };
+      
+      select.addEventListener("change", toggleOtroInput);
+      toggleOtroInput(); // Ejecutar al cargar por si acaso
+    };
+    
+    // Configurar handler para el formulario principal
+    setupVendedorOtroHandler("vendedor", "vendedorOtro");
+    
+    // Configurar handler para el modal de edición
+    setupVendedorOtroHandler("editVentaVendedor", "editVentaVendedorOtro");
+    
+    // Sobrescribir buildPayloadItems para usar vendedorOtro cuando corresponda
+    let originalBuildPayloadItems = null;
+    try {
+      originalBuildPayloadItems = buildPayloadItems;
+    } catch (_) {
+      originalBuildPayloadItems = null;
+    }
+    
+    if (form) {
+      setSubmitMode(false);
+      if (vistActual === "ventas-form") loadEditState();
+      if (!modoEdicion) aplicarPrefillDesdeVisita();
+      renderCarrito();
+    }
+    renderVentas(); mountTableTools("ventas");
   }
   function renderVentas() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
@@ -1174,28 +1513,73 @@ Gracias por su compromiso y profesionalismo.`;
       return;
     }
     if (q("#ventasFiltroActualLabel")) q("#ventasFiltroActualLabel").textContent = range.label;
-    if (q("#ventasKpiMesLabel")) q("#ventasKpiMesLabel").textContent = `Ventas (${range.label})`;
-    const ventasVista = agruparVentasPorPedido(st.ventas).filter((v) => inRangeFecha(v.fecha, range.from, range.to));
+    const normalizarFiltroVentas = (value) => String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+    const termino = normalizarFiltroVentas(q("#buscadorVentas")?.value);
+    const vendedorFiltro = String(q("#ventasFiltroVendedor")?.value || "todos");
+    const estadoFiltro = String(q("#ventasFiltroEstado")?.value || "todos");
+    const prioridadFiltro = normalizarFiltroVentas(q("#ventasFiltroPrioridad")?.value || "todos");
+    const ventasAgrupadas = agruparVentasPorPedido(st.ventas);
+    const hayPrioridadVentas = ventasAgrupadas.some((v) => normalizarFiltroVentas(v.prioridad));
+    const ventasVista = ventasAgrupadas
+      .filter((v) => inRangeFecha(v.fecha, range.from, range.to))
+      .filter((v) => {
+        if (!termino) return true;
+        return [
+          v.cliente,
+          v.vendedor,
+          ...(v.productos || []),
+          ...(v.descripciones || []),
+          v.telefono,
+          v.ubicacion,
+          v.numeroRecibo,
+          v.numeroPedido
+        ].some((field) => normalizarFiltroVentas(field).includes(termino));
+      })
+      .filter((v) => vendedorFiltro === "todos" || String(v.vendedor || "") === vendedorFiltro)
+      .filter((v) => {
+        if (estadoFiltro === "pagado") return Number(v.saldo || 0) <= 0;
+        if (estadoFiltro === "pendiente") return Number(v.saldo || 0) > 0;
+        return true;
+      })
+      .filter((v) => {
+        if (prioridadFiltro === "todos" || !hayPrioridadVentas) return true;
+        const prioridad = normalizarFiltroVentas(v.prioridad);
+        return prioridad === prioridadFiltro;
+      });
     ventasVistaCache = ventasVista;
+    const chipsHost = q("#ventasFiltrosActivos");
+    if (chipsHost) {
+      const chips = [];
+      if (termino) chips.push(`Busqueda: ${q("#buscadorVentas")?.value || ""}`);
+      if (vendedorFiltro !== "todos") chips.push(`Vendedor: ${vendedorFiltro}`);
+      if (estadoFiltro !== "todos") chips.push(`Estado: ${estadoFiltro === "pagado" ? "Pagado" : "Pendiente"}`);
+      if (prioridadFiltro !== "todos") chips.push(`Prioridad: ${prioridadFiltro.charAt(0).toUpperCase()}${prioridadFiltro.slice(1)}`);
+      if (range.label && range.label !== "Todos los meses") chips.push(`Fecha: ${range.label}`);
+      chipsHost.innerHTML = chips.map((chip) => `<span class="ventas-filter-chip">${chip}</span>`).join("");
+      chipsHost.classList.toggle("d-none", !chips.length);
+    }
     body.innerHTML = ventasVista.length
       ? ventasVista.map((v, idx) => {
         const productoTxt = v.productos.length > 1 ? `${v.productos[0]} (+${v.productos.length - 1})` : (v.productos[0] || "-");
-        const descTxt = v.descripciones.length > 1 ? `${v.descripciones[0]} (+${v.descripciones.length - 1})` : (v.descripciones[0] || "-");
-        const precioProm = v.cantidad > 0 ? (v.total / v.cantidad) : 0;
-        const btnEditar = puedeOperar()
-          ? `<button type="button" class="btn btn-outline-primary edit-venta-btn" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen me-2"></i>Editar</button>`
+        const pagado = Number(v.saldo || 0) <= 0;
+        const estadoBadge = pagado
+          ? '<span class="ventas-status-badge is-paid">Pagado</span>'
+          : '<span class="ventas-status-badge is-pending">Pendiente</span>';
+        const btnEditar = esAdmin()
+          ? `<button type="button" class="btn btn-light ventas-action-btn edit-venta-btn" title="Editar" aria-label="Editar venta" data-pedido="${v.pedidoId || ""}" data-id="${v.id}"><i class="fas fa-pen"></i></button>`
           : "";
-        const acciones = puedeOperar()
-          ? `<div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-info ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>${btnEditar}</div><button type="button" class="btn btn-outline-secondary create-inst-from-sale-btn" data-idx="${idx}"><i class="fas fa-tools me-2"></i>Inst</button></div>`
-          : `<button type="button" class="btn btn-outline-info btn-sm ver-items-venta-btn" data-idx="${idx}"><i class="fas fa-list me-2"></i>Ver</button>`;
-        return `<tr class="${v.saldo <= 0 ? "table-success" : ""}"><td>${v.fecha}</td><td>${v.numeroRecibo}</td><td>${v.numeroPedido}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(v.cantidad)}</td><td>${money(precioProm)}</td><td>${money(v.abono)}</td><td>${v.metodoPago}</td><td>${v.vendedor}</td><td>${v.cliente}</td><td>${v.telefono}</td><td>${v.ubicacion}</td><td>${v.fechaProgramacion}</td><td>${money(v.total)}</td><td>${acciones}</td></tr>`;
+        return `<tr><td>${v.fecha || "-"}</td><td>${v.numeroRecibo || "-"}</td><td>${v.numeroPedido || "-"}</td><td><div class="ventas-client-cell">${v.cliente || "-"}</div></td><td>${productoTxt}</td><td class="text-end fw-semibold">${money(v.total)}</td><td>${estadoBadge}</td><td><div class="ventas-action-group"><button type="button" class="btn btn-light ventas-action-btn ver-items-venta-btn" title="Ver detalle" aria-label="Ver detalle" data-idx="${idx}"><i class="fas fa-eye"></i></button>${btnEditar}<button type="button" class="btn btn-light ventas-action-btn create-inst-from-sale-btn" title="Crear instalacion" aria-label="Crear instalacion" data-idx="${idx}"><i class="fas fa-gear"></i></button></div></td></tr>`;
       }).join("")
-      : '<tr><td colspan="16" class="text-center text-muted">Sin ventas en el periodo seleccionado</td></tr>';
+      : '<tr><td colspan="8" class="text-center text-muted py-4">Sin ventas para los filtros seleccionados</td></tr>';
 
     const total = ventasVista.reduce((s, v) => s + Number(v.total || 0), 0);
     const cobrado = ventasVista.reduce((s, v) => s + Number(v.abono || 0), 0);
     const credito = ventasVista.reduce((s, v) => s + Number(v.saldo || 0), 0);
-    const totalPorMetodo = { Efectivo: 0, Tarjeta: 0, Transferencia: 0, Crédito: 0 };
+    const totalPorMetodo = { Efectivo: 0, Tarjeta: 0, Transferencia: 0 };
     ventasVista.forEach((v) => {
       const metodo = normalizarMetodoPagoVenta(v.metodoPago);
       if (Object.prototype.hasOwnProperty.call(totalPorMetodo, metodo)) {
@@ -1209,7 +1593,6 @@ Gracias por su compromiso y profesionalismo.`;
     animateCounter(q("#ventasKpiTotalVendido"), total);
     animateCounter(q("#ventasKpiContado"), cobrado);
     animateCounter(q("#ventasKpiCobrar"), credito);
-    animateCounter(q("#ventasKpiMes"), total);
     animateCounter(q("#ventasMetodoEfectivo"), totalPorMetodo.Efectivo);
     animateCounter(q("#ventasMetodoTarjeta"), totalPorMetodo.Tarjeta);
     animateCounter(q("#ventasMetodoTransferencia"), totalPorMetodo.Transferencia);
@@ -1269,7 +1652,6 @@ Gracias por su compromiso y profesionalismo.`;
       form.onsubmit = async (e) => {
         e.preventDefault();
         try {
-          if (!validarPermisoOperacion()) return;
           const avisoCliente = !!q("#avisoCliente")?.checked;
           const avisoInstalador = !!q("#avisoInstalador")?.checked;
           const payload = {
@@ -1372,7 +1754,7 @@ Gracias por su compromiso y profesionalismo.`;
         e.preventDefault();
         const id = q("#editInstId")?.value;
         if (!id) return;
-        if (!validarPermisoOperacion()) return;
+        if (!validarPermisoAdmin()) return;
         try {
           await upd("instalacion", id, {
             instalador: q("#editInstalador").value || "Sin asignar",
@@ -1397,7 +1779,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", (e) => {
         const btn = e.target.closest(".edit-inst-btn");
         if (!btn) return;
-        if (!validarPermisoOperacion()) return;
+        if (!validarPermisoAdmin()) return;
         const item = st.instalacion.find((x) => String(x.id) === String(btn.dataset.id));
         if (!item) return;
         if (q("#editInstId")) q("#editInstId").value = item.id;
@@ -1415,20 +1797,55 @@ Gracias por su compromiso y profesionalismo.`;
       instEditClickBound = true;
     }
 
-    renderInst(); buscador("buscadorInstalacion", "datatablesSimple"); mountTableTools("instalacion");
+    fillSelectOptions(q("#instFiltroTecnico"), [...new Set(st.instalacion.map((i) => txt(val(i, "instalador"))).filter(Boolean))].sort(), "Todos los tecnicos");
+    ["#buscadorInstalacion", "#instFiltroTecnico", "#instFiltroEstado", "#instFiltroPeriodo", "#instFiltroMes"].forEach((selector) => {
+      const el = q(selector);
+      if (el && !el.dataset.boundInstFilters) {
+        el.addEventListener(selector === "#buscadorInstalacion" ? "input" : "change", () => {
+          setMonthVisibility("#instFiltroPeriodo", "#instFiltroMes");
+          renderInst();
+        });
+        el.dataset.boundInstFilters = "1";
+      }
+    });
+    setMonthVisibility("#instFiltroPeriodo", "#instFiltroMes");
+    renderInst(); mountTableTools("instalacion");
   }
   function renderInst() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
-    body.innerHTML = st.instalacion.map((i) => {
+    const term = normalizeUiText(q("#buscadorInstalacion")?.value);
+    const tecnicoFiltro = q("#instFiltroTecnico")?.value || "todos";
+    const estadoFiltro = normalizeUiText(q("#instFiltroEstado")?.value || "todos");
+    const periodo = q("#instFiltroPeriodo")?.value || "todos";
+    const mes = q("#instFiltroMes")?.value || "";
+    const rows = st.instalacion.filter((i) => {
+      const estado = normalizeUiText(val(i, "estado") || "Pendiente");
+      const tecnico = txt(val(i, "instalador")) || "Sin asignar";
+      const fecha = val(i, "fecha_entrega", "fechaEntrega");
+      const searchable = [
+        val(i, "id"), val(i, "instalador"), val(i, "cliente"), val(i, "telefono"),
+        val(i, "producto"), val(i, "ubicacion"), val(i, "fecha_entrega", "fechaEntrega"),
+        val(i, "estado"), val(i, "observaciones")
+      ].join(" ");
+      const statusOk = estadoFiltro === "todos" || estado.includes(estadoFiltro);
+      return containsUiText(searchable, term)
+        && (tecnicoFiltro === "todos" || tecnico === tecnicoFiltro)
+        && statusOk
+        && matchesMonthFilter(fecha, periodo, mes);
+    });
+    if (q("#instFiltroActualLabel")) q("#instFiltroActualLabel").textContent = periodo === "todos" ? "Todos los registros" : q("#instFiltroPeriodo")?.selectedOptions?.[0]?.textContent || "Filtro aplicado";
+    body.innerHTML = rows.length ? rows.map((i) => {
       const estado = val(i, "estado") || "Pendiente";
       const estadoTxt = String(estado || "").toLowerCase().trim();
       const completado = estadoTxt === "completado";
-      const btnEditarInst = puedeOperar()
-        ? `<button type="button" class="btn btn-sm btn-outline-primary edit-inst-btn" data-id="${i.id}"><i class="fas fa-pen me-1"></i>Editar</button>`
-        : "-";
-      return `<tr class="${completado ? "table-success" : ""}"><td><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""} ${puedeOperar() ? "" : "disabled"}></td><td>${val(i, "instalador") || "-"}</td><td>${val(i, "cliente") || "-"}</td><td>${val(i, "telefono") || "-"}</td><td>${val(i, "producto") || "-"}</td><td>${fmtQty(val(i, "cantidad"))}</td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(i, "observaciones") || "-"}</td><td>${btnEditarInst}</td></tr>`;
-    }).join("");
-    if (q("#pedidoEntregar")) q("#pedidoEntregar").textContent = fmtInt(st.instalacion.length);
+      const pendiente = estadoTxt.includes("pendiente");
+      const estadoTone = completado ? "paid" : (pendiente ? "pending" : "warning");
+      const btnEditarInst = esAdmin()
+        ? `<button type="button" class="btn btn-light ventas-action-btn edit-inst-btn" title="Editar" aria-label="Editar instalacion" data-id="${i.id}"><i class="fas fa-pen"></i></button>`
+        : "";
+      return `<tr><td>${val(i, "fecha_entrega", "fechaEntrega") || "-"}</td><td><div class="ventas-client-cell">${val(i, "cliente") || "-"}</div></td><td>${val(i, "ubicacion") || "-"}</td><td>${val(i, "instalador") || "Sin asignar"}</td><td>${statusBadge(estado, estadoTone)}</td><td><div class="ventas-action-group"><button type="button" class="btn btn-light ventas-action-btn ver-inst-btn" title="Ver detalle" aria-label="Ver detalle" data-id="${i.id}"><i class="fas fa-eye"></i></button>${btnEditarInst}<label class="ventas-check-action" title="Marcar completado"><input type="checkbox" class="estado-checkbox" data-id="${i.id}" ${completado ? "checked" : ""}><span></span></label></div></td></tr>`;
+    }).join("") : '<tr><td colspan="6" class="text-center text-muted py-4">Sin instalaciones para los filtros seleccionados</td></tr>';
+    if (q("#pedidoEntregar")) q("#pedidoEntregar").textContent = fmtInt(rows.length);
     const hoy = today();
     const instHoy = st.instalacion.filter((i) => asDay(val(i, "fecha_entrega", "fechaEntrega")) === hoy).length;
     const instPend = st.instalacion.filter((i) => {
@@ -1439,11 +1856,24 @@ Gracias por su compromiso y profesionalismo.`;
     animateCounter(q("#instKpiHoy"), instHoy);
     animateCounter(q("#instKpiPendientes"), instPend);
     ensureTablePagination(q("#datatablesSimple"), "instalacion", 10);
+    document.querySelectorAll(".ver-inst-btn").forEach((btn) => btn.onclick = () => {
+      const item = st.instalacion.find((x) => String(x.id) === String(btn.dataset.id));
+      if (!item) return;
+      const html = detailGrid([
+        ["Cliente", val(item, "cliente")],
+        ["Telefono", val(item, "telefono")],
+        ["Direccion", val(item, "ubicacion")],
+        ["Tecnico", val(item, "instalador") || "Sin asignar"],
+        ["Producto", val(item, "producto")],
+        ["Cantidad", fmtQty(val(item, "cantidad"))],
+        ["Fecha", val(item, "fecha_entrega", "fechaEntrega")],
+        ["Estado", val(item, "estado") || "Pendiente"],
+        ["Observaciones", val(item, "observaciones")]
+      ]);
+      if (window.Swal) window.Swal.fire({ title: "Detalle de instalacion", html, width: 820, confirmButtonText: "Cerrar" });
+      else alertx("No fue posible abrir el detalle porque SweetAlert no esta disponible.", "warning");
+    });
     document.querySelectorAll(".estado-checkbox").forEach((c) => c.onchange = async function () {
-      if (!validarPermisoOperacion()) {
-        this.checked = !this.checked;
-        return;
-      }
       try { await upd("instalacion", this.dataset.id, { estado: this.checked ? "Completado" : "Pendiente" }); renderInst(); }
       catch (err) { this.checked = !this.checked; alertx(errEs("No fue posible cambiar el estado del pedido.", err), "error"); }
     });
@@ -1563,7 +1993,6 @@ Gracias por su compromiso y profesionalismo.`;
     form.onsubmit = async (e) => {
       e.preventDefault();
       try {
-        if (!validarPermisoOperacion()) return;
         const payload = buildGastoPayload();
         await ins("gastos", payload);
         resetGastosForm();
@@ -1574,7 +2003,7 @@ Gracias por su compromiso y profesionalismo.`;
     if (editForm && !editForm.dataset.bound) {
       editForm.onsubmit = async (e) => {
         e.preventDefault();
-        if (!validarPermisoOperacion()) return;
+        if (!validarPermisoAdmin()) return;
         const id = txt(editIdInput?.value);
         if (!id) return;
         try {
@@ -1590,9 +2019,24 @@ Gracias por su compromiso y profesionalismo.`;
       editForm.dataset.bound = "1";
     }
     body.onclick = (e) => {
+      const detailBtn = e.target.closest(".ver-gasto-btn");
+      if (detailBtn) {
+        const item = st.gastos.find((x) => String(val(x, "id")) === String(detailBtn.dataset.id));
+        if (!item) return;
+        const html = detailGrid([
+          ["Tipo", tipoGasto(val(item, "tipo"))],
+          ["Descripcion", val(item, "descripcion") || "-"],
+          ["Monto", money(val(item, "monto"))],
+          ["Metodo", metodoPagoGasto(item)],
+          ["Fecha", fmtDateTime(fechaMovimientoGasto(item))]
+        ]);
+        if (window.Swal) window.Swal.fire({ title: "Detalle de movimiento", html, width: 760, confirmButtonText: "Cerrar" });
+        else alertx("No fue posible abrir el detalle porque SweetAlert no esta disponible.", "warning");
+        return;
+      }
       const btn = e.target.closest(".edit-gasto-btn");
       if (!btn) return;
-      if (!validarPermisoOperacion()) return;
+      if (!validarPermisoAdmin()) return;
       const item = st.gastos.find((x) => String(val(x, "id")) === String(btn.dataset.id));
       if (!item) return;
       const rawTipo = txt(val(item, "tipo"));
@@ -1620,28 +2064,46 @@ Gracias por su compromiso y profesionalismo.`;
     initFechaHora();
     toggleTipoOtro();
     toggleCustomRangeGastos();
-    renderGastos(); buscador("buscadorGastos", "datatablesSimple"); mountTableTools("gastos");
+    fillSelectOptions(q("#gastosFiltroTipo"), [...new Set((st.gastos || []).map((g) => tipoGasto(val(g, "tipo"))).filter(Boolean))].sort(), "Todos los tipos");
+    ["#buscadorGastos", "#gastosFiltroTipo", "#gastosFiltroMetodo"].forEach((selector) => {
+      const el = q(selector);
+      if (el && !el.dataset.boundGastosFilters) {
+        el.addEventListener(selector === "#buscadorGastos" ? "input" : "change", () => renderGastos());
+        el.dataset.boundGastosFilters = "1";
+      }
+    });
+    renderGastos(); mountTableTools("gastos");
   }
   function renderGastos() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
     const rows = st.gastos || [];
-    body.innerHTML = rows.length
-      ? rows.map((g) => {
-        const btnEditar = puedeOperar()
-          ? `<button type="button" class="btn btn-sm btn-outline-primary edit-gasto-btn" data-id="${val(g, "id")}"><i class="fas fa-pen me-1"></i>Editar</button>`
-          : "-";
-        return `<tr><td>${tipoGasto(val(g, "tipo"))}</td><td>${val(g, "descripcion") || "-"}</td><td>${money(val(g, "monto"))}</td><td>${metodoPagoGasto(g)}</td><td>${fmtDateTime(fechaMovimientoGasto(g))}</td><td>${btnEditar}</td></tr>`;
-      }).join("")
-      : '<tr><td colspan="6" class="text-center text-muted">No hay movimientos registrados</td></tr>';
-    if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(rows.length);
-
     const range = rangeByFiltroGastos();
     if (range.from && range.to && range.from > range.to) {
       alertx("El rango personalizado no es valido. Verifica la fecha inicial y final.", "warning");
       return;
     }
     if (q("#gastosFiltroActualLabel")) q("#gastosFiltroActualLabel").textContent = range.label;
-    const rowsFiltrados = rows.filter((g) => inRangeGasto(fechaMovimientoGasto(g), range.from, range.to));
+    const term = normalizeUiText(q("#buscadorGastos")?.value);
+    const tipoFiltro = q("#gastosFiltroTipo")?.value || "todos";
+    const metodoFiltro = q("#gastosFiltroMetodo")?.value || "todos";
+    const rowsFiltrados = rows.filter((g) => {
+      const tipo = tipoGasto(val(g, "tipo"));
+      const metodo = metodoPagoGasto(g);
+      const searchable = [val(g, "id"), tipo, val(g, "descripcion"), metodo, val(g, "monto"), fechaMovimientoGasto(g)].join(" ");
+      return containsUiText(searchable, term)
+        && (tipoFiltro === "todos" || tipo === tipoFiltro)
+        && (metodoFiltro === "todos" || metodo === metodoFiltro)
+        && inRangeGasto(fechaMovimientoGasto(g), range.from, range.to);
+    });
+    body.innerHTML = rowsFiltrados.length
+      ? rowsFiltrados.map((g) => {
+        const btnEditar = esAdmin()
+          ? `<button type="button" class="btn btn-light ventas-action-btn edit-gasto-btn" title="Editar" aria-label="Editar movimiento" data-id="${val(g, "id")}"><i class="fas fa-pen"></i></button>`
+          : "";
+        return `<tr><td>${fmtDateTime(fechaMovimientoGasto(g))}</td><td>${tipoGasto(val(g, "tipo"))}</td><td><div class="ventas-client-cell">${val(g, "descripcion") || "-"}</div></td><td>${metodoPagoGasto(g)}</td><td class="text-end fw-semibold">${money(val(g, "monto"))}</td><td><div class="ventas-action-group"><button type="button" class="btn btn-light ventas-action-btn ver-gasto-btn" title="Ver detalle" aria-label="Ver detalle" data-id="${val(g, "id")}"><i class="fas fa-eye"></i></button>${btnEditar}</div></td></tr>`;
+      }).join("")
+      : '<tr><td colspan="6" class="text-center text-muted py-4">No hay movimientos para los filtros seleccionados</td></tr>';
+    if (q("#gastosTotal")) q("#gastosTotal").textContent = fmtInt(rowsFiltrados.length);
     const gastosEgreso = rowsFiltrados.reduce((s, g) => {
       if (!esGastoEgreso(val(g, "tipo"))) return s;
       return s + Number(val(g, "monto") || 0);
@@ -1653,6 +2115,8 @@ Gracias por su compromiso y profesionalismo.`;
     const saldoNeto = carteraPagada - gastosEgreso;
 
     animateCounter(q("#gastosKpiHoy"), carteraPendiente);
+    animateCounter(q("#gastosKpiTotal"), gastosEgreso);
+    animateCounter(q("#gastosKpiMovimientos"), rowsFiltrados.length);
     animateCounter(q("#gastosKpiSemana"), carteraPagada);
     animateCounter(q("#gastosKpiPromDia"), saldoNeto);
 
@@ -1701,7 +2165,7 @@ Gracias por su compromiso y profesionalismo.`;
           datasets: [{
             label: "Total",
             data: descripcionResumen.map((x) => x[1]),
-            backgroundColor: "#58738f"
+            backgroundColor: "#0f766e"
           }]
         },
         options: {
@@ -1737,6 +2201,11 @@ Gracias por su compromiso y profesionalismo.`;
       const e = normalizarEstado(estado);
       return e === "realizado" ? "visita-estado-realizado" : (e === "cancelado" ? "visita-estado-cancelado" : "visita-estado-pendiente");
     };
+    const badgeEstadoVisita = (estado) => {
+      const e = normalizarEstado(estado);
+      const tone = e === "realizado" ? "paid" : (e === "cancelado" ? "cancelled" : "pending");
+      return statusBadge(e, tone);
+    };
     const pintarSelectEstado = (selectEl, estado) => {
       if (!selectEl) return;
       const e = normalizarEstado(estado || selectEl.value);
@@ -1753,11 +2222,9 @@ Gracias por su compromiso y profesionalismo.`;
       bodyDia.innerHTML = rows.length
         ? rows.map((v) => {
           const estado = normalizarEstado(val(v, "estado"));
-          const clase = estado === "realizado" ? "table-success" : (estado === "cancelado" ? "table-danger" : "");
-          const codigo = txt(val(v, "codigo_visita", "codigo")) || codigoPorId(val(v, "id"));
-          return `<tr class="${clase}"><td>${codigo}</td><td>${val(v, "fecha") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "telefono") || "-"}</td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "observaciones") || "-"}</td><td>${estado}</td></tr>`;
+          return `<tr><td>${val(v, "fecha") || "-"}</td><td><div class="ventas-client-cell">${val(v, "cliente") || "-"}</div></td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${badgeEstadoVisita(estado)}</td></tr>`;
         }).join("")
-        : '<tr><td colspan="9" class="text-center">No hay visitas para hoy</td></tr>';
+        : '<tr><td colspan="5" class="text-center">No hay visitas para hoy</td></tr>';
     };
 
     async function cargarVisitas() {
@@ -1767,14 +2234,35 @@ Gracias por su compromiso y profesionalismo.`;
     }
 
     function actualizarCards() {
-      const pendientes = st.visitas.filter((v) => normalizarEstado(val(v, "estado")) === "pendiente").length;
-      const realizadas = st.visitas.filter((v) => normalizarEstado(val(v, "estado")) === "realizado").length;
-      const canceladas = st.visitas.filter((v) => normalizarEstado(val(v, "estado")) === "cancelado").length;
-      if (q("#visitasTotal")) q("#visitasTotal").textContent = fmtInt(st.visitas.length);
-      animateCounter(q("#visitasKpiTotal"), st.visitas.length);
+      const base = getVisitasFiltradas();
+      const pendientes = base.filter((v) => normalizarEstado(val(v, "estado")) === "pendiente").length;
+      const realizadas = base.filter((v) => normalizarEstado(val(v, "estado")) === "realizado").length;
+      const canceladas = base.filter((v) => normalizarEstado(val(v, "estado")) === "cancelado").length;
+      if (q("#visitasTotal")) q("#visitasTotal").textContent = fmtInt(base.length);
+      animateCounter(q("#visitasKpiTotal"), base.length);
       animateCounter(q("#visitasKpiPendientes"), pendientes);
       animateCounter(q("#visitasKpiRealizadas"), realizadas);
       animateCounter(q("#visitasKpiCanceladas"), canceladas);
+    }
+    function getVisitasFiltradas() {
+      const term = normalizeUiText(q("#buscadorVisitas")?.value);
+      const vendedorFiltro = q("#visitasFiltroVendedor")?.value || "todos";
+      const estadoFiltro = normalizarEstado(q("#visitasFiltroEstado")?.value || "pendiente");
+      const estadoRaw = q("#visitasFiltroEstado")?.value || "todos";
+      const periodo = q("#visitasFiltroPeriodo")?.value || "todos";
+      const mes = q("#visitasFiltroMes")?.value || "";
+      return st.visitas.filter((v) => {
+        const codigo = txt(val(v, "codigo_visita", "codigo")) || codigoPorId(val(v, "id"));
+        const searchable = [
+          codigo, val(v, "id"), val(v, "fecha"), val(v, "cliente"), val(v, "telefono"),
+          val(v, "direccion"), val(v, "tipo_trabajo", "tipoTrabajo"), val(v, "vendedor"),
+          val(v, "estado"), val(v, "observaciones")
+        ].join(" ");
+        return containsUiText(searchable, term)
+          && (vendedorFiltro === "todos" || txt(val(v, "vendedor")) === vendedorFiltro)
+          && (estadoRaw === "todos" || normalizarEstado(val(v, "estado")) === estadoFiltro)
+          && matchesMonthFilter(val(v, "fecha"), periodo, mes);
+      });
     }
 
     function irACotizacion(id) {
@@ -1803,7 +2291,6 @@ Gracias por su compromiso y profesionalismo.`;
     }
 
     function irAVenta(id) {
-      if (!puedeOperar()) return avisarSoloConsulta();
       const visita = st.visitas.find((v) => String(val(v, "id")) === String(id));
       if (!visita) return alertx("No fue posible encontrar la visita seleccionada.", "warning");
       const payload = {
@@ -1821,7 +2308,7 @@ Gracias por su compromiso y profesionalismo.`;
     }
 
     function abrirEdicionVisita(id) {
-      if (!validarPermisoOperacion()) return;
+      if (!validarPermisoAdmin()) return;
       const visita = st.visitas.find((v) => String(val(v, "id")) === String(id));
       if (!visita) return alertx("No fue posible encontrar la visita para editar.", "warning");
       if (q("#editVisitaId")) q("#editVisitaId").value = val(visita, "id");
@@ -1838,7 +2325,7 @@ Gracias por su compromiso y profesionalismo.`;
 
     async function guardarEdicionVisita(e) {
       e.preventDefault();
-      if (!validarPermisoOperacion()) return;
+      if (!validarPermisoAdmin()) return;
       const id = q("#editVisitaId")?.value;
       const cliente = txt(q("#editVisitaCliente")?.value);
       if (!id) return alertx("No fue posible identificar la visita.", "warning");
@@ -1865,10 +2352,6 @@ Gracias por su compromiso y profesionalismo.`;
     }
 
     async function cambiarEstado(id, nuevoEstado, selectEl) {
-      if (!puedeOperar()) {
-        pintarSelectEstado(selectEl, selectEl?.dataset.estado || "pendiente");
-        return avisarSoloConsulta();
-      }
       const estadoPrevio = normalizarEstado(selectEl?.dataset.estado || "pendiente");
       const estadoNuevo = normalizarEstado(nuevoEstado);
       if (estadoNuevo === estadoPrevio) return;
@@ -1891,18 +2374,16 @@ Gracias por su compromiso y profesionalismo.`;
 
     function renderizarVisitas() {
       if (body) {
-        body.innerHTML = st.visitas.map((v) => {
+        const visitas = getVisitasFiltradas();
+        if (q("#visitasFiltroActualLabel")) q("#visitasFiltroActualLabel").textContent = (q("#visitasFiltroPeriodo")?.value || "todos") === "todos" ? "Todos los registros" : q("#visitasFiltroPeriodo")?.selectedOptions?.[0]?.textContent || "Filtro aplicado";
+        body.innerHTML = visitas.length ? visitas.map((v) => {
           const estado = normalizarEstado(val(v, "estado"));
-          const clase = estado === "realizado" ? "table-success" : (estado === "cancelado" ? "table-danger" : "");
           const codigo = txt(val(v, "codigo_visita", "codigo")) || codigoPorId(val(v, "id"));
-          const btnEditar = puedeOperar()
-            ? `<button type="button" class="btn btn-sm btn-outline-primary edit-visita-btn" data-id="${val(v, "id")}"><i class="fas fa-pen-to-square me-1"></i>Editar</button>`
+          const btnEditar = esAdmin()
+            ? `<button type="button" class="btn btn-light ventas-action-btn edit-visita-btn" title="Editar" aria-label="Editar visita" data-id="${val(v, "id")}"><i class="fas fa-pen"></i></button>`
             : "";
-          const botonVenta = puedeOperar()
-            ? `<button type="button" class="btn btn-outline-dark btn-venta-desde-visita" data-id="${val(v, "id")}"><i class="fas fa-cart-plus me-1"></i>Venta</button>`
-            : "";
-          return `<tr class="${clase}"><td>${codigo}</td><td>${val(v, "fecha") || "-"}</td><td>${val(v, "cliente") || "-"}</td><td>${val(v, "telefono") || "-"}</td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td>${val(v, "observaciones") || "-"}</td><td><select class="form-select form-select-sm visita-estado-select ${claseEstadoVisita(estado)}" data-id="${val(v, "id")}" data-estado="${estado}" ${puedeOperar() ? "" : "disabled"}><option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>pendiente</option><option value="realizado" ${estado === "realizado" ? "selected" : ""}>realizado</option><option value="cancelado" ${estado === "cancelado" ? "selected" : ""}>cancelado</option></select></td><td><div class="d-flex gap-2"><div class="btn-group-vertical btn-group-sm" role="group"><button type="button" class="btn btn-outline-secondary btn-cotizar-visita" data-id="${val(v, "id")}"><i class="fas fa-file-signature me-1"></i>Cotizar</button>${btnEditar}</div>${botonVenta}</div></td></tr>`;
-        }).join("");
+          return `<tr><td>${val(v, "fecha") || "-"}</td><td><div class="ventas-client-cell">${val(v, "cliente") || "-"}</div><small class="text-muted">${codigo}</small></td><td>${val(v, "direccion") || "-"}</td><td>${val(v, "vendedor") || "-"}</td><td><select class="form-select form-select-sm visita-estado-select ${claseEstadoVisita(estado)}" data-id="${val(v, "id")}" data-estado="${estado}" title="Cambiar estado"><option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>pendiente</option><option value="realizado" ${estado === "realizado" ? "selected" : ""}>realizado</option><option value="cancelado" ${estado === "cancelado" ? "selected" : ""}>cancelado</option></select></td><td><div class="ventas-action-group"><button type="button" class="btn btn-light ventas-action-btn ver-visita-btn" title="Ver detalle" aria-label="Ver detalle" data-id="${val(v, "id")}"><i class="fas fa-eye"></i></button><button type="button" class="btn btn-light ventas-action-btn btn-cotizar-visita" title="Cotizar" aria-label="Cotizar" data-id="${val(v, "id")}"><i class="fas fa-file-signature"></i></button><button type="button" class="btn btn-light ventas-action-btn btn-venta-desde-visita" title="Crear venta" aria-label="Crear venta" data-id="${val(v, "id")}"><i class="fas fa-cart-plus"></i></button>${btnEditar}</div></td></tr>`;
+        }).join("") : '<tr><td colspan="6" class="text-center text-muted py-4">Sin visitas para los filtros seleccionados</td></tr>';
         ensureTablePagination(tabla, "visitas", 10);
 
         document.querySelectorAll(".visita-estado-select").forEach((selectEl) => {
@@ -1918,6 +2399,26 @@ Gracias por su compromiso y profesionalismo.`;
         document.querySelectorAll(".edit-visita-btn").forEach((btn) => {
           btn.onclick = () => abrirEdicionVisita(btn.dataset.id);
         });
+        document.querySelectorAll(".ver-visita-btn").forEach((btn) => {
+          btn.onclick = () => {
+            const visita = st.visitas.find((v) => String(val(v, "id")) === String(btn.dataset.id));
+            if (!visita) return;
+            const codigo = txt(val(visita, "codigo_visita", "codigo")) || codigoPorId(val(visita, "id"));
+            const html = detailGrid([
+              ["Codigo", codigo],
+              ["Cliente", val(visita, "cliente")],
+              ["Telefono", val(visita, "telefono")],
+              ["Ubicacion", val(visita, "direccion")],
+              ["Asesor", val(visita, "vendedor")],
+              ["Tipo de trabajo", val(visita, "tipo_trabajo", "tipoTrabajo")],
+              ["Fecha", val(visita, "fecha")],
+              ["Estado", normalizarEstado(val(visita, "estado"))],
+              ["Observaciones", val(visita, "observaciones")]
+            ]);
+            if (window.Swal) window.Swal.fire({ title: "Detalle de visita", html, width: 820, confirmButtonText: "Cerrar" });
+            else alertx("No fue posible abrir el detalle porque SweetAlert no esta disponible.", "warning");
+          };
+        });
       }
 
       filaHoyVisitas();
@@ -1927,7 +2428,6 @@ Gracias por su compromiso y profesionalismo.`;
     async function insertarVisita(e) {
       if (e) e.preventDefault();
       if (!form) return;
-      if (!validarPermisoOperacion()) return;
       const cliente = txt(q("#cliente")?.value);
       if (!cliente) return alertx("El campo cliente es obligatorio.", "warning");
       const payload = {
@@ -1973,8 +2473,19 @@ Gracias por su compromiso y profesionalismo.`;
     }
 
     await cargarVisitas();
+    fillSelectOptions(q("#visitasFiltroVendedor"), [...new Set(st.visitas.map((v) => txt(val(v, "vendedor"))).filter(Boolean))].sort(), "Todos los asesores");
+    ["#buscadorVisitas", "#visitasFiltroVendedor", "#visitasFiltroEstado", "#visitasFiltroPeriodo", "#visitasFiltroMes"].forEach((selector) => {
+      const el = q(selector);
+      if (el && !el.dataset.boundVisitasFilters) {
+        el.addEventListener(selector === "#buscadorVisitas" ? "input" : "change", () => {
+          setMonthVisibility("#visitasFiltroPeriodo", "#visitasFiltroMes");
+          renderizarVisitas();
+        });
+        el.dataset.boundVisitasFilters = "1";
+      }
+    });
+    setMonthVisibility("#visitasFiltroPeriodo", "#visitasFiltroMes");
     if (tabla && q("#buscadorVisitas")) {
-      buscador("buscadorVisitas", "datatablesSimple");
       mountTableTools("visitas");
     }
   }
@@ -2163,7 +2674,7 @@ Gracias por su compromiso y profesionalismo.`;
         e.preventDefault();
         if (!carritoMercancia.length) return alertx("Debes agregar al menos un producto al carrito antes de guardar.", "warning");
         try {
-          if (!validarPermisoOperacion()) return;
+          if (modoEdicion && !validarPermisoAdmin()) return;
           const pedidoIdActual = txt(q("#numeroPedidoMercancia")?.value);
           if (!pedidoIdActual) return alertx("Debes ingresar el numero de pedido para guardar la mercancia.", "warning");
           const payloads = buildPayloadItems(pedidoIdActual);
@@ -2227,7 +2738,7 @@ Gracias por su compromiso y profesionalismo.`;
       document.addEventListener("click", async (e) => {
         const btn = e.target.closest(".edit-mercancia-btn");
         if (!btn) return;
-        if (!validarPermisoOperacion()) return;
+        if (!validarPermisoAdmin()) return;
         const pedidoId = txt(btn.dataset.pedido);
         const fallbackId = txt(btn.dataset.id);
         try {
@@ -2294,9 +2805,20 @@ Gracias por su compromiso y profesionalismo.`;
       mercanciaItemsClickBound = true;
     }
 
+    fillSelectOptions(q("#mercFiltroResponsable"), [...new Set(st.mercancia.map((m) => txt(val(m, "transportadora", "remitente"))).filter(Boolean))].sort(), "Todos los responsables");
+    ["#buscadorMercancia", "#mercFiltroResponsable", "#mercFiltroEstado", "#mercFiltroPeriodo", "#mercFiltroMes"].forEach((selector) => {
+      const el = q(selector);
+      if (el && !el.dataset.boundMercFilters) {
+        el.addEventListener(selector === "#buscadorMercancia" ? "input" : "change", () => {
+          setMonthVisibility("#mercFiltroPeriodo", "#mercFiltroMes");
+          renderMercancia();
+        });
+        el.dataset.boundMercFilters = "1";
+      }
+    });
+    setMonthVisibility("#mercFiltroPeriodo", "#mercFiltroMes");
     renderMercancia();
     if (q("#datatablesSimple")) {
-      buscador("buscadorMercancia", "datatablesSimple");
       mountTableTools("mercancia");
     }
   }
@@ -2327,7 +2849,8 @@ Gracias por su compromiso y profesionalismo.`;
           descripciones: [],
           cantidad: 0,
           total: 0,
-          items: []
+          items: [],
+          searchText: ""
         });
       }
 
@@ -2337,29 +2860,43 @@ Gracias por su compromiso y profesionalismo.`;
       if (producto && !g.productos.includes(producto)) g.productos.push(producto);
       if (descripcion && !g.descripciones.includes(descripcion)) g.descripciones.push(descripcion);
       g.items.push({ producto, descripcion, cantidad, precio, subtotal });
+      g.searchText += ` ${val(m, "id")} ${pedidoId} ${val(m, "fecha_recepcion", "fechaRecepcion")} ${val(m, "transportadora")} ${val(m, "remitente")} ${val(m, "cliente_destino", "clienteDestino")} ${producto} ${descripcion} ${cantidad} ${precio} ${val(m, "observaciones")}`;
     });
     return Array.from(grupos.values());
   }
   function renderMercanciaRows(rows, withActions = true) {
     return rows.map((m, idx) => {
       const productoTxt = m.productos.length > 1 ? `${m.productos[0]} (+${m.productos.length - 1})` : (m.productos[0] || "-");
-      const descTxt = m.descripciones.length > 1 ? `${m.descripciones[0]} (+${m.descripciones.length - 1})` : (m.descripciones[0] || "-");
-      const btnEditarMercancia = puedeOperar()
-        ? `<button type="button" class="btn btn-sm btn-outline-primary edit-mercancia-btn" data-pedido="${m.pedidoId || ""}" data-id="${m.id}"><i class="fas fa-pen me-1"></i>Editar</button>`
+      const descTxt = m.descripciones.length > 1 ? `${m.descripciones[0]} (+${m.descripciones.length - 1})` : (m.descripciones[0] || "General");
+      const btnEditarMercancia = esAdmin()
+        ? `<button type="button" class="btn btn-light ventas-action-btn edit-mercancia-btn" title="Editar" aria-label="Editar mercancia" data-pedido="${m.pedidoId || ""}" data-id="${m.id}"><i class="fas fa-pen"></i></button>`
         : "";
       const acciones = withActions
-        ? `<td><div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-info ver-items-mercancia-btn" data-idx="${idx}"><i class="fas fa-list me-1"></i>Ver</button>${btnEditarMercancia}</div></td>`
+        ? `<td><div class="ventas-action-group"><button type="button" class="btn btn-light ventas-action-btn ver-items-mercancia-btn" title="Ver detalle" aria-label="Ver detalle" data-idx="${idx}"><i class="fas fa-eye"></i></button>${btnEditarMercancia}</div></td>`
         : "";
-      return `<tr><td>${m.fechaRecepcion}</td><td>${m.numeroPedido}</td><td>${m.transportadora}</td><td>${m.remitente}</td><td>${m.clienteDestino}</td><td>${productoTxt}</td><td>${descTxt}</td><td>${fmtQty(m.cantidad)}</td><td>${money(m.total)}</td><td>${m.observaciones || "-"}</td>${acciones}</tr>`;
+      return `<tr><td><div class="ventas-client-cell">${productoTxt}</div><small class="text-muted">Pedido ${m.numeroPedido}</small></td><td>${descTxt}</td><td>${fmtQty(m.cantidad)}</td><td class="text-end fw-semibold">${money(m.total)}</td><td>${statusBadge("Activo", "paid")}</td>${acciones}</tr>`;
     }).join("");
   }
   function renderMercancia() {
     const body = q("#datatablesSimple tbody"); if (!body) return;
-    const mercanciaVista = buildMercanciaVista(st.mercancia);
+    const term = normalizeUiText(q("#buscadorMercancia")?.value);
+    const responsableFiltro = q("#mercFiltroResponsable")?.value || "todos";
+    const estadoFiltro = q("#mercFiltroEstado")?.value || "todos";
+    const periodo = q("#mercFiltroPeriodo")?.value || "todos";
+    const mes = q("#mercFiltroMes")?.value || "";
+    const mercanciaVista = buildMercanciaVista(st.mercancia).filter((m) => {
+      const responsable = txt(m.transportadora === "-" ? m.remitente : m.transportadora);
+      const estado = Number(m.cantidad || 0) > 0 ? "activo" : "pendiente";
+      return containsUiText(m.searchText, term)
+        && (responsableFiltro === "todos" || responsable === responsableFiltro)
+        && (estadoFiltro === "todos" || estado === estadoFiltro)
+        && matchesMonthFilter(m.fechaRecepcion, periodo, mes);
+    });
     mercanciaVistaCache = mercanciaVista;
+    if (q("#mercFiltroActualLabel")) q("#mercFiltroActualLabel").textContent = periodo === "todos" ? "Todos los registros" : q("#mercFiltroPeriodo")?.selectedOptions?.[0]?.textContent || "Filtro aplicado";
     body.innerHTML = mercanciaVista.length
       ? renderMercanciaRows(mercanciaVista, true)
-      : '<tr><td colspan="11" class="text-center text-muted">No hay pedidos de mercancia registrados</td></tr>';
+      : '<tr><td colspan="6" class="text-center text-muted py-4">Sin mercancia para los filtros seleccionados</td></tr>';
     if (q("#mercancia")) q("#mercancia").textContent = fmtInt(mercanciaVista.length);
     const valorTotal = st.mercancia.reduce((s, m) => s + (Number(val(m, "precio") || 0) * Number(val(m, "cantidad_cajas", "cantidad") || 0)), 0);
     const proveedores = new Set(st.mercancia.map((m) => String(val(m, "transportadora") || "").trim()).filter(Boolean)).size;
@@ -2373,13 +2910,28 @@ Gracias por su compromiso y profesionalismo.`;
     await load("ventas");
     const tb = q("#carteraTabla"), msg = q("#mensajeVacio");
     const buscador = q("#buscadorCartera"), filtroSaldo = q("#filtroSaldo"), filtroModo = q("#filtroModoCartera"), btnExportar = q("#btnExportarCartera");
+    const filtroFecha = q("#filtroFechaCartera"), filtroVendedor = q("#filtroVendedorCartera");
     if (!tb) return;
     const base = agruparVentasPorPedido(st.ventas || []);
+    fillSelectOptions(filtroVendedor, [...new Set(base.map((c) => txt(c.vendedor)).filter(Boolean).filter((v) => v !== "-"))].sort(), "Todos los vendedores");
+    const matchesCarteraDate = (fecha) => {
+      const mode = String(filtroFecha?.value || "mes");
+      const day = String(fecha || "").slice(0, 10);
+      const month = String(fecha || "").slice(0, 7);
+      const year = String(fecha || "").slice(0, 4);
+      if (mode === "todos") return true;
+      if (!day) return false;
+      if (mode === "mes") return month === monthShift(0);
+      if (mode === "mes_anterior") return month === monthShift(-1);
+      if (mode === "anio") return year === String(new Date().getFullYear());
+      return true;
+    };
 
     const applyFilters = () => {
-      const term = String(buscador?.value || "").toLowerCase().trim();
-      const saldoRule = String(filtroSaldo?.value || "todos");
+      const term = normalizeUiText(buscador?.value);
+      const estadoRule = String(filtroSaldo?.value || "pendiente");
       const modo = String(filtroModo?.value || "pendientes");
+      const vendedorRule = String(filtroVendedor?.value || "todos");
       return base.filter((raw) => {
         const metodoCarteraRaw = txt(raw.metodoCartera);
         const c = {
@@ -2389,26 +2941,32 @@ Gracias por su compromiso y profesionalismo.`;
         };
         const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
         const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
-        const hayTexto = !term || [c.cliente, c.telefono, productoTxt, descripcionTxt, c.numeroPedido, c.numeroCartera, c.metodoCartera]
-          .join(" ").toLowerCase().includes(term);
-        const cumpleModo = modo === "abonos" ? c.abono > 0 : c.saldo > 0;
-        const valorFiltro = modo === "abonos" ? c.abono : c.saldo;
-        let haySaldo = true;
-        if (saldoRule === "mayor-1000") haySaldo = valorFiltro > 1000;
-        else if (saldoRule === "mayor-500") haySaldo = valorFiltro > 500;
-        else if (saldoRule === "menor-500") haySaldo = valorFiltro <= 500;
-        return hayTexto && haySaldo && cumpleModo;
+        const hayTexto = containsUiText([c.cliente, c.telefono, productoTxt, descripcionTxt, c.numeroPedido, c.numeroCartera, c.metodoCartera, c.vendedor, c.ubicacion].join(" "), term);
+        const estado = Number(c.saldo || 0) <= 0 ? "pagado" : "pendiente";
+        const cumpleEstado = estadoRule === "todos" || estadoRule === estado;
+        const cumpleModo = modo === "todos" || (modo === "abonos" ? c.abono > 0 : c.saldo > 0);
+        return hayTexto
+          && cumpleEstado
+          && cumpleModo
+          && matchesCarteraDate(c.fecha)
+          && (vendedorRule === "todos" || String(c.vendedor || "") === vendedorRule);
       });
     };
 
     const renderFiltered = () => {
       const cart = applyFilters();
+      const totalGeneral = base.reduce((s, c) => s + Number(c.total || 0), 0);
+      const totalPendienteAll = base.reduce((s, c) => s + Number(c.saldo || 0), 0);
+      const totalAbonadoAll = base.reduce((s, c) => s + Number(c.abono || 0), 0);
+      const recuperacion = totalGeneral ? (totalAbonadoAll / totalGeneral) * 100 : 0;
+      animateCounter(q("#totalCartera"), totalPendienteAll);
+      animateCounter(q("#clientesActivos"), new Set(base.filter((c) => Number(c.saldo || 0) > 0).map((c) => c.cliente || "")).size);
+      animateCounter(q("#totalAbonadoCartera"), totalAbonadoAll);
+      if (q("#porcentajeRecuperacionCartera")) q("#porcentajeRecuperacionCartera").textContent = `${recuperacion.toFixed(1).replace(".", ",")}%`;
+      if (q("#carteraFiltroActualLabel")) q("#carteraFiltroActualLabel").textContent = filtroModo?.selectedOptions?.[0]?.textContent || "Cartera";
       if (!cart.length) {
         tb.innerHTML = "";
         if (msg) msg.style.display = "";
-        animateCounter(q("#totalCartera"), 0);
-        animateCounter(q("#clientesActivos"), 0);
-        animateCounter(q("#totalAbonadoCartera"), 0);
         if (q("#totalRegistros")) q("#totalRegistros").textContent = "0 registros";
         ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
         return;
@@ -2418,31 +2976,56 @@ Gracias por su compromiso y profesionalismo.`;
       tb.innerHTML = cart.map((c, i) => {
         const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
         const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
-        const metodoSeleccionado = normalizarMetodoCartera(c.metodoCartera);
         const puedeAbonar = Number(c.saldo || 0) > 0;
-        const acciones = (puedeAbonar && puedeOperar())
-          ? `<div class="d-flex flex-column flex-md-row gap-2"><input type="number" class="abono-input form-control form-control-sm" min="0.01" step="0.01" data-i="${i}" placeholder="Valor"><input type="text" class="abono-cartera-input form-control form-control-sm" data-i="${i}" placeholder="No. cartera" value="${c.numeroCartera && c.numeroCartera !== "-" ? c.numeroCartera : ""}"><select class="metodo-cartera-select form-select form-select-sm" data-i="${i}"><option value="">Metodo</option><option value="Transferencia" ${metodoSeleccionado === "Transferencia" ? "selected" : ""}>Transferencia</option><option value="Tarjeta" ${metodoSeleccionado === "Tarjeta" ? "selected" : ""}>Tarjeta</option><option value="Efectivo" ${metodoSeleccionado === "Efectivo" ? "selected" : ""}>Efectivo</option></select><button class="btn btn-success btn-sm abonar-btn" data-id="${c.id}" data-i="${i}">Abonar</button></div>`
-          : `<span class="badge ${Number(c.saldo || 0) <= 0 ? "bg-success" : "bg-secondary"}">${Number(c.saldo || 0) <= 0 ? "Pagado" : "Solo lectura"}</span>`;
-        return `<tr class="${c.saldo <= 0 ? "table-success" : ""}"><td>${c.cliente}</td><td>${c.telefono}</td><td>${productoTxt}</td><td>${descripcionTxt}</td><td>${c.fecha}</td><td>${c.numeroPedido}</td><td>${c.numeroCartera || "-"}</td><td>${c.metodoCartera || "-"}</td><td>${money(c.total)}</td><td>${money(c.abono)}</td><td>${money(c.saldo)}</td><td>${acciones}</td></tr>`;
+        const estadoBadge = puedeAbonar ? statusBadge("Pendiente", "warning") : statusBadge("Pagado", "paid");
+        const saldoClass = puedeAbonar ? "cartera-balance-pending" : "text-success";
+        const acciones = `<div class="ventas-action-group"><button type="button" class="btn btn-light ventas-action-btn ver-cartera-btn" title="Ver detalle" aria-label="Ver detalle" data-i="${i}"><i class="fas fa-eye"></i></button>${puedeAbonar ? `<button type="button" class="btn btn-light ventas-action-btn abonar-btn" title="Registrar abono" aria-label="Registrar abono" data-id="${c.id}" data-i="${i}"><i class="fas fa-dollar-sign"></i></button>` : ""}</div>`;
+        return `<tr><td><div class="ventas-client-cell">${c.cliente}</div><small class="text-muted">${c.telefono || "-"}</small></td><td>${productoTxt}<small class="d-block text-muted">${descripcionTxt}</small></td><td>${c.fecha || "-"}</td><td>${c.numeroPedido || "-"}</td><td>${c.numeroCartera || "-"}</td><td class="text-end fw-semibold">${money(c.total)}</td><td class="text-end">${money(c.abono)}</td><td class="text-end fw-semibold ${saldoClass}">${money(c.saldo)}</td><td>${estadoBadge}</td><td>${acciones}</td></tr>`;
       }).join("");
-      const totalPendiente = cart.reduce((s, c) => s + Number(c.saldo || 0), 0);
-      const totalAbonado = cart.reduce((s, c) => s + Number(c.abono || 0), 0);
-      const clientesConSaldo = new Set(cart.filter((c) => Number(c.saldo || 0) > 0).map((c) => val(c, "cliente") || "")).size;
-      animateCounter(q("#totalCartera"), totalPendiente);
-      animateCounter(q("#clientesActivos"), clientesConSaldo);
-      animateCounter(q("#totalAbonadoCartera"), totalAbonado);
       if (q("#totalRegistros")) q("#totalRegistros").textContent = `${fmtInt(cart.length)} registros`;
       ensureTablePagination(q("#carteraTabla")?.closest("table"), "cartera", 10);
 
       document.querySelectorAll(".abonar-btn").forEach((b) => b.onclick = async function () {
-        if (!validarPermisoOperacion()) return;
         const i = Number(this.dataset.i);
-        const inp = document.querySelector(`input.abono-input[data-i="${i}"]`);
-        const carteraInp = document.querySelector(`input.abono-cartera-input[data-i="${i}"]`);
-        const metodoInp = document.querySelector(`select.metodo-cartera-select[data-i="${i}"]`);
-        const abono = Number(inp?.value || 0);
-        const numeroCartera = txt(carteraInp?.value);
-        const metodoCartera = normalizarMetodoCartera(metodoInp?.value);
+        const actual = cart[i];
+        let formValues = null;
+        if (window.Swal) {
+          const metodoSeleccionado = normalizarMetodoCartera(actual.metodoCartera);
+          const result = await window.Swal.fire({
+            title: "Registrar abono",
+            html: `
+              <div class="text-start">
+                <label class="form-label fw-semibold">Valor del abono</label>
+                <input type="number" min="0.01" step="0.01" id="swalAbonoValor" class="form-control mb-3" placeholder="Valor" autofocus>
+                <label class="form-label fw-semibold">No. cartera</label>
+                <input type="text" id="swalAbonoCartera" class="form-control mb-3" placeholder="No. cartera" value="${actual.numeroCartera && actual.numeroCartera !== "-" ? actual.numeroCartera : ""}">
+                <label class="form-label fw-semibold">Metodo de pago</label>
+                <select id="swalAbonoMetodo" class="form-select">
+                  <option value="">Metodo</option>
+                  <option value="Transferencia" ${metodoSeleccionado === "Transferencia" ? "selected" : ""}>Transferencia</option>
+                  <option value="Tarjeta" ${metodoSeleccionado === "Tarjeta" ? "selected" : ""}>Tarjeta</option>
+                  <option value="Efectivo" ${metodoSeleccionado === "Efectivo" ? "selected" : ""}>Efectivo</option>
+                </select>
+              </div>`,
+            showCancelButton: true,
+            confirmButtonText: "Guardar abono",
+            cancelButtonText: "Cancelar",
+            preConfirm: () => ({
+              abono: Number(document.getElementById("swalAbonoValor")?.value || 0),
+              numeroCartera: txt(document.getElementById("swalAbonoCartera")?.value),
+              metodoCartera: normalizarMetodoCartera(document.getElementById("swalAbonoMetodo")?.value)
+            })
+          });
+          if (!result.isConfirmed) return;
+          formValues = result.value;
+        } else {
+          formValues = {
+            abono: Number(window.prompt("Valor del abono") || 0),
+            numeroCartera: txt(window.prompt("Numero de cartera") || ""),
+            metodoCartera: normalizarMetodoCartera(window.prompt("Metodo: Efectivo, Tarjeta o Transferencia") || "")
+          };
+        }
+        const { abono, numeroCartera, metodoCartera } = formValues || {};
         if (!abono || abono <= 0) return alertx("Debes ingresar un valor de abono mayor a cero.", "warning");
         if (abono > cart[i].saldo) return alertx("El valor del abono no puede superar el saldo pendiente.", "warning");
         if (!numeroCartera) return alertx("Debes ingresar el numero de cartera para registrar el abono.", "warning");
@@ -2465,28 +3048,44 @@ Gracias por su compromiso y profesionalismo.`;
             metodo_cartera: metodoCartera
           });
           await load("ventas");
+          if (calcularSaldoVenta(cart[i].total, nuevoAbono) <= 0 && filtroModo) filtroModo.value = "abonos";
           alertx("El abono fue registrado correctamente.", "success");
           await modCartera();
         } catch (err) {
           alertx(errEs("No fue posible registrar el abono.", err), "error");
         }
       });
+      document.querySelectorAll(".ver-cartera-btn").forEach((b) => b.onclick = function () {
+        const c = cart[Number(this.dataset.i)];
+        if (!c) return;
+        const productoTxt = c.productos.length > 1 ? `${c.productos[0]} (+${c.productos.length - 1})` : (c.productos[0] || "-");
+        const descripcionTxt = c.descripciones.length > 1 ? `${c.descripciones[0]} (+${c.descripciones.length - 1})` : (c.descripciones[0] || "-");
+        const html = detailGrid([
+          ["Cliente", c.cliente],
+          ["Telefono", c.telefono],
+          ["Producto", productoTxt],
+          ["Referencia", descripcionTxt],
+          ["Vendedor", c.vendedor],
+          ["Fecha", c.fecha],
+          ["No. pedido", c.numeroPedido],
+          ["No. cartera", c.numeroCartera],
+          ["Metodo cartera", c.metodoCartera],
+          ["Total", money(c.total)],
+          ["Abono", money(c.abono)],
+          ["Saldo", money(c.saldo)]
+        ]);
+        if (window.Swal) window.Swal.fire({ title: "Detalle de cartera", html, width: 820, confirmButtonText: "Cerrar" });
+        else alertx("No fue posible abrir el detalle porque SweetAlert no esta disponible.", "warning");
+      });
     };
 
-    if (buscador && !buscador.dataset.bound) {
-      buscador.addEventListener("input", renderFiltered);
-      buscador.dataset.bound = "1";
-    }
-    if (filtroSaldo && !filtroSaldo.dataset.bound) {
-      filtroSaldo.addEventListener("change", renderFiltered);
-      filtroSaldo.dataset.bound = "1";
-    }
-    if (filtroModo && !filtroModo.dataset.bound) {
-      filtroModo.addEventListener("change", renderFiltered);
-      filtroModo.dataset.bound = "1";
-    }
-    if (btnExportar && !btnExportar.dataset.bound) {
-      btnExportar.addEventListener("click", () => {
+    if (buscador) buscador.oninput = renderFiltered;
+    if (filtroSaldo) filtroSaldo.onchange = renderFiltered;
+    if (filtroModo) filtroModo.onchange = renderFiltered;
+    if (filtroFecha) filtroFecha.onchange = renderFiltered;
+    if (filtroVendedor) filtroVendedor.onchange = renderFiltered;
+    if (btnExportar) {
+      btnExportar.onclick = () => {
         const cart = applyFilters();
         if (!cart.length) return alertx("No hay datos para exportar con los filtros actuales.", "warning");
         const rows = [["Cliente", "Telefono", "Producto", "Descripcion", "Fecha", "Numero Pedido Venta", "Numero Cartera", "Metodo Cartera", "Total", "Abono", "Saldo"]];
@@ -2517,13 +3116,12 @@ Gracias por su compromiso y profesionalismo.`;
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
-      });
-      btnExportar.dataset.bound = "1";
+      };
     }
 
     const btnResumen = q("#btnResumenCartera");
-    if (btnResumen && !btnResumen.dataset.bound) {
-      btnResumen.addEventListener("click", () => {
+    if (btnResumen) {
+      btnResumen.onclick = () => {
         const cart = applyFilters();
         if (!cart.length) return alertx("No hay datos para generar el resumen con los filtros actuales.", "warning");
         const totalPendiente = cart.reduce((s, c) => s + Number(c.saldo || 0), 0);
@@ -2586,8 +3184,7 @@ Gracias por su compromiso y profesionalismo.`;
         } else {
           alertx("No fue posible abrir el resumen porque SweetAlert no esta disponible.", "warning");
         }
-      });
-      btnResumen.dataset.bound = "1";
+      };
     }
 
     renderFiltered();
@@ -2595,7 +3192,34 @@ Gracias por su compromiso y profesionalismo.`;
   }
 
   async function modDashboard() {
-    const adminMode = esSoloConsulta();
+    const addDays = (iso, days) => {
+      const d = new Date(`${iso}T00:00:00`);
+      d.setDate(d.getDate() + days);
+      return d.toISOString().slice(0, 10);
+    };
+    const pctChange = (current, previous) => {
+      const c = Number(current || 0);
+      const p = Number(previous || 0);
+      if (!p && !c) return 0;
+      if (!p) return 100;
+      return ((c - p) / Math.abs(p)) * 100;
+    };
+    const setKpiChange = (selector, pct) => {
+      const el = q(selector);
+      if (!el) return;
+      const value = Number.isFinite(pct) ? pct : 0;
+      const rounded = Math.abs(value) >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
+      const suffix = el.dataset.suffix || "";
+      el.textContent = `${value >= 0 ? "+" : "-"}${Math.abs(rounded)}%${suffix}`;
+      el.classList.toggle("is-up", value >= 0);
+      el.classList.toggle("is-down", value < 0);
+    };
+    const previousRange = (range) => {
+      if (!range.from || !range.to) return { from: "", to: "" };
+      const days = Math.max(1, Math.round((new Date(`${range.to}T00:00:00`) - new Date(`${range.from}T00:00:00`)) / 86400000) + 1);
+      const to = addDays(range.from, -1);
+      return { from: addDays(to, -(days - 1)), to };
+    };
     const inRange = (fecha, from, to) => {
       const d = asDay(fecha);
       if (!d || d === "-") return false;
@@ -2618,26 +3242,31 @@ Gracias por su compromiso y profesionalismo.`;
       document.querySelectorAll(".dash-custom-range").forEach((el) => el.classList.toggle("d-none", !show));
     };
 
-    await Promise.all([
-      load("ventas"),
-      load("instalacion"),
-      ...(adminMode ? [load("visitas"), load("gastos"), load("mercancia")] : [])
-    ]);
+    await Promise.all([load("ventas"), load("instalacion")]);
     const ventas = [...(st.ventas || [])];
     const instalaciones = [...(st.instalacion || [])];
-    const visitas = [...(st.visitas || [])];
-    const gastos = [...(st.gastos || [])];
-    const mercancia = [...(st.mercancia || [])];
 
     const ventasAgrupadasAll = agruparVentasPorPedido(ventas);
     const hoy = today();
     const mesActual = hoy.slice(0, 7);
+    const ayer = addDays(hoy, -1);
+    const inicioMesActual = `${mesActual}-01`;
+    const finMesAnterior = addDays(inicioMesActual, -1);
+    const inicioMesAnterior = `${finMesAnterior.slice(0, 7)}-01`;
 
     const ventasHoy = ventasAgrupadasAll.filter((v) => asDay(v.fecha) === hoy).reduce((s, v) => s + Number(v.total || 0), 0);
     const ventasMes = ventasAgrupadasAll.filter((v) => String(v.fecha || "").slice(0, 7) === mesActual).reduce((s, v) => s + Number(v.total || 0), 0);
+    const ventasAyer = ventasAgrupadasAll.filter((v) => asDay(v.fecha) === ayer).reduce((s, v) => s + Number(v.total || 0), 0);
+    const ventasMesAnterior = ventasAgrupadasAll
+      .filter((v) => inRange(v.fecha, inicioMesAnterior, finMesAnterior))
+      .reduce((s, v) => s + Number(v.total || 0), 0);
 
     const renderDashboard = () => {
       const range = rangeByFiltro();
+      if (String(q("#dashFiltroPeriodo")?.value || "") === "custom" && (!range.from || !range.to)) {
+        alertx("Debes seleccionar las fechas Desde y Hasta para el filtro personalizado.", "warning");
+        return;
+      }
       if (range.from && range.to && range.from > range.to) {
         alertx("El rango personalizado no es valido. Verifica la fecha inicial y final.", "warning");
         return;
@@ -2646,20 +3275,36 @@ Gracias por su compromiso y profesionalismo.`;
 
       const ventasFiltradas = ventas.filter((v) => inRange(val(v, "fecha"), range.from, range.to));
       const ventasAgrupadas = agruparVentasPorPedido(ventasFiltradas);
+      const prevRange = previousRange(range);
+      const ventasPrevias = ventas.filter((v) => inRange(val(v, "fecha"), prevRange.from, prevRange.to));
+      const ventasAgrupadasPrevias = agruparVentasPorPedido(ventasPrevias);
       const carteraPendiente = ventasAgrupadas.reduce((s, v) => s + Number(v.saldo || 0), 0);
+      const carteraPendientePrevia = ventasAgrupadasPrevias.reduce((s, v) => s + Number(v.saldo || 0), 0);
       const pedidosInstalar = instalaciones.filter((i) => {
         const estado = String(val(i, "estado") || "").toLowerCase();
         const noCompletado = !estado.includes("completado");
         const fecha = val(i, "fecha_entrega", "fechaEntrega");
         return noCompletado && inRange(fecha, range.from, range.to);
       }).length;
+      const pedidosInstalarPrevios = instalaciones.filter((i) => {
+        const estado = String(val(i, "estado") || "").toLowerCase();
+        const noCompletado = !estado.includes("completado");
+        const fecha = val(i, "fecha_entrega", "fechaEntrega");
+        return noCompletado && inRange(fecha, prevRange.from, prevRange.to);
+      }).length;
 
       if (q("#dashVentasHoy")) q("#dashVentasHoy").textContent = money(ventasHoy);
       if (q("#dashVentasMes")) q("#dashVentasMes").textContent = money(ventasMes);
       if (q("#dashCarteraPendiente")) q("#dashCarteraPendiente").textContent = money(carteraPendiente);
       if (q("#dashPedidosInstalar")) q("#dashPedidosInstalar").textContent = fmtInt(pedidosInstalar);
-      const adminSection = q("#adminInsightsSection");
-      if (adminSection) adminSection.classList.toggle("d-none", !adminMode);
+      if (q("#dashVentasHoyCambio")) q("#dashVentasHoyCambio").dataset.suffix = " vs ayer";
+      if (q("#dashVentasMesCambio")) q("#dashVentasMesCambio").dataset.suffix = " vs mes anterior";
+      if (q("#dashCarteraCambio")) q("#dashCarteraCambio").dataset.suffix = " vs periodo anterior";
+      if (q("#dashPedidosCambio")) q("#dashPedidosCambio").dataset.suffix = " pendientes";
+      setKpiChange("#dashVentasHoyCambio", pctChange(ventasHoy, ventasAyer));
+      setKpiChange("#dashVentasMesCambio", pctChange(ventasMes, ventasMesAnterior));
+      setKpiChange("#dashCarteraCambio", pctChange(carteraPendiente, carteraPendientePrevia));
+      setKpiChange("#dashPedidosCambio", pctChange(pedidosInstalar, pedidosInstalarPrevios));
 
       const ventasUlt30 = {};
       const endDate = range.to || hoy;
@@ -2680,7 +3325,7 @@ Gracias por su compromiso y profesionalismo.`;
         const vend = String(v.vendedor || "Sin vendedor").trim() || "Sin vendedor";
         porVendedor[vend] = (porVendedor[vend] || 0) + Number(v.total || 0);
       });
-      const vendedores = Object.entries(porVendedor).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const vendedores = Object.entries(porVendedor).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
       const ingresosProducto = {};
       const cantidadProducto = {};
@@ -2691,13 +3336,55 @@ Gracias por su compromiso y profesionalismo.`;
         ingresosProducto[p] = (ingresosProducto[p] || 0) + totalLinea;
         cantidadProducto[p] = (cantidadProducto[p] || 0) + cantLinea;
       });
-      const productosConIngreso = Object.entries(ingresosProducto).sort((a, b) => b[1] - a[1]).slice(0, 8);
-      const productosConCantidad = Object.entries(cantidadProducto).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const productosResumen = Object.entries(ingresosProducto)
+        .map(([producto, ingreso]) => ({
+          producto,
+          ingreso: Number(ingreso || 0),
+          cantidad: Number(cantidadProducto[producto] || 0)
+        }))
+        .sort((a, b) => b.ingreso - a.ingreso);
+      const productosConIngreso = productosResumen.slice(0, 8);
+      const productosConCantidad = [...productosResumen].sort((a, b) => b.cantidad - a.cantidad).slice(0, 8);
+      const productoLider = productosResumen[0] || null;
+      if (q("#dashProductosPeriodo")) q("#dashProductosPeriodo").textContent = range.label;
+      if (q("#dashProductoLider")) q("#dashProductoLider").textContent = productoLider ? productoLider.producto : "-";
+      if (q("#dashProductoIngresos")) q("#dashProductoIngresos").textContent = productoLider ? money(productoLider.ingreso) : "$0";
+      if (q("#dashProductoUnidades")) q("#dashProductoUnidades").textContent = productoLider ? fmtQty(productoLider.cantidad) : "0";
+      const topProductos = q("#dashTopProductos");
+      if (topProductos) {
+        const maxIngreso = Math.max(...productosConIngreso.map((x) => Number(x.ingreso) || 0), 1);
+        topProductos.innerHTML = productosConCantidad.length
+          ? productosConIngreso.slice(0, 5).map((item, index) => {
+            const pct = Math.max(4, Math.round((Number(item.ingreso || 0) / maxIngreso) * 100));
+            return `
+              <div class="dashboard-top-product-row">
+                <div class="dashboard-top-product-meta">
+                  <span class="dashboard-top-product-name"><i>${index + 1}</i>${item.producto}</span>
+                  <span class="dashboard-top-product-value">${money(item.ingreso)}</span>
+                </div>
+                <div class="dashboard-top-product-sub">${fmtQty(item.cantidad)} unidades vendidas</div>
+                <div class="dashboard-top-product-bar">
+                  <div class="dashboard-top-product-fill" style="width: ${pct}%"></div>
+                </div>
+              </div>
+            `;
+          }).join("")
+          : '<div class="text-center text-muted py-4">Sin productos en el periodo</div>';
+      }
+      if (q("#dashResumenOrdenes")) q("#dashResumenOrdenes").textContent = fmtInt(ventasAgrupadas.length);
+      if (q("#dashResumenClientes")) q("#dashResumenClientes").textContent = fmtInt(new Set(ventasAgrupadas.map((v) => String(v.cliente || "").trim()).filter(Boolean)).size);
+      if (q("#dashResumenVentas")) q("#dashResumenVentas").textContent = fmtInt(ventasFiltradas.length);
+      if (q("#dashResumenInstalaciones")) q("#dashResumenInstalaciones").textContent = fmtInt(instalaciones.filter((i) => {
+        const estado = String(val(i, "estado") || "").toLowerCase();
+        const fecha = val(i, "fecha_entrega", "fechaEntrega");
+        return estado.includes("completado") && inRange(fecha, range.from, range.to);
+      }).length);
 
       if (charts.ventas30Dias) charts.ventas30Dias.destroy();
       if (charts.ventasVendedor) charts.ventasVendedor.destroy();
       if (charts.ingresosProducto) charts.ingresosProducto.destroy();
       if (charts.cantidadProducto) charts.cantidadProducto.destroy();
+      charts.cantidadProducto = null;
 
       if (window.Chart && q("#chartVentas30Dias")) {
         charts.ventas30Dias = new window.Chart(q("#chartVentas30Dias"), {
@@ -2707,13 +3394,26 @@ Gracias por su compromiso y profesionalismo.`;
             datasets: [{
               label: "Ventas",
               data: Object.values(ventasUlt30),
-              borderColor: "#374151",
-              backgroundColor: "rgba(55, 65, 81, 0.16)",
+              borderColor: "#2563eb",
+              backgroundColor: "rgba(37, 99, 235, 0.1)",
               fill: true,
-              tension: 0.25
+              tension: 0.4,
+              radius: 0,
+              pointRadius: 0,
+              pointHoverRadius: 3,
+              borderWidth: 2.5
             }]
           },
-          options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2.2, plugins: { legend: { display: false } } }
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2.2,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: "#64748b", maxTicksLimit: 8 } },
+              y: { beginAtZero: true, grid: { color: "rgba(148, 163, 184, 0.16)", drawBorder: false }, ticks: { color: "#64748b" } }
+            }
+          }
         });
       }
       if (window.Chart && q("#chartVentasVendedor")) {
@@ -2721,134 +3421,63 @@ Gracias por su compromiso y profesionalismo.`;
           type: "bar",
           data: {
             labels: vendedores.map((x) => x[0]),
-            datasets: [{ label: "Ventas", data: vendedores.map((x) => x[1]), backgroundColor: "#58738f" }]
-          },
-          options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.8, plugins: { legend: { display: false } } }
-        });
-      }
-      if (window.Chart && q("#chartIngresosProducto")) {
-        charts.ingresosProducto = new window.Chart(q("#chartIngresosProducto"), {
-          type: "pie",
-          data: {
-            labels: productosConIngreso.map((x) => x[0]),
             datasets: [{
-              data: productosConIngreso.map((x) => x[1]),
-              backgroundColor: chartPalette.slice(0, Math.max(productosConIngreso.length, 1))
+              label: "Ventas",
+              data: vendedores.map((x) => x[1]),
+              backgroundColor: "#2563eb",
+              borderRadius: 8,
+              maxBarThickness: 46
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: true,
-            aspectRatio: 1,
+            aspectRatio: 1.75,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: "#475569" } },
+              y: { beginAtZero: true, grid: { color: "rgba(148, 163, 184, 0.18)", drawBorder: false }, ticks: { color: "#475569" } }
+            }
+          }
+        });
+      }
+      if (window.Chart && q("#chartIngresosProducto")) {
+        charts.ingresosProducto = new window.Chart(q("#chartIngresosProducto"), {
+          type: "bar",
+          data: {
+            labels: productosConIngreso.map((x) => x.producto),
+            datasets: [{
+              label: "Ingresos",
+              data: productosConIngreso.map((x) => x.ingreso),
+              backgroundColor: chartPalette.slice(0, Math.max(productosConIngreso.length, 1)),
+              borderColor: "transparent",
+              borderRadius: 8,
+              borderWidth: 0,
+              maxBarThickness: 26
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "y",
             plugins: {
-              legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+              legend: { display: false },
               tooltip: {
                 callbacks: {
                   label: (ctx) => `${ctx.label}: ${money(ctx.raw || 0)}`
                 }
               }
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                grid: { color: "rgba(148, 163, 184, 0.16)", drawBorder: false },
+                ticks: { color: "#64748b", callback: (value) => money(value) }
+              },
+              y: { grid: { display: false }, ticks: { color: "#334155", font: { weight: 600 } } }
             }
           }
         });
-      }
-      if (window.Chart && q("#chartCantidadProducto")) {
-        charts.cantidadProducto = new window.Chart(q("#chartCantidadProducto"), {
-          type: "doughnut",
-          data: {
-            labels: productosConCantidad.map((x) => x[0]),
-            datasets: [{
-              data: productosConCantidad.map((x) => x[1]),
-              backgroundColor: chartPalette.slice(0, Math.max(productosConCantidad.length, 1))
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 1,
-            plugins: {
-              legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => `${ctx.label}: ${fmtQty(ctx.raw || 0)} und`
-                }
-              }
-            }
-          }
-        });
-      }
-
-      if (charts.adminVisitasEstado) charts.adminVisitasEstado.destroy();
-      if (charts.adminGastosMetodo) charts.adminGastosMetodo.destroy();
-
-      if (adminMode) {
-        const visitasFiltradas = visitas.filter((v) => inRange(val(v, "fecha"), range.from, range.to));
-        const visitasEstado = {
-          pendiente: visitasFiltradas.filter((v) => String(val(v, "estado") || "").toLowerCase().includes("pend")).length,
-          realizado: visitasFiltradas.filter((v) => ["realizado", "realizada"].includes(String(val(v, "estado") || "").toLowerCase())).length,
-          cancelado: visitasFiltradas.filter((v) => String(val(v, "estado") || "").toLowerCase().includes("cancel")).length
-        };
-        const gastosFiltrados = gastos.filter((g) => inRange(asDay(fechaMovimientoGasto(g)), range.from, range.to));
-        const mercanciaFiltrada = mercancia.filter((m) => inRange(val(m, "fecha_recepcion", "fechaRecepcion"), range.from, range.to));
-        const totalVentasPeriodo = ventasAgrupadas.reduce((sum, v) => sum + Number(v.total || 0), 0);
-        const ticketPromedio = ventasAgrupadas.length ? totalVentasPeriodo / ventasAgrupadas.length : 0;
-        const totalGastos = gastosFiltrados.reduce((s, g) => s + Number(val(g, "monto") || 0), 0);
-        const totalMercancia = mercanciaFiltrada.reduce((s, m) => s + (Number(val(m, "precio") || 0) * Number(val(m, "cantidad_cajas", "cantidad") || 0)), 0);
-        const instalacionesCompletadas = instalaciones.filter((i) => {
-          const estado = String(val(i, "estado") || "").toLowerCase();
-          const fecha = val(i, "fecha_entrega", "fechaEntrega");
-          return estado.includes("completado") && inRange(fecha, range.from, range.to);
-        }).length;
-        const clientesTopMap = {};
-        ventasAgrupadas.forEach((v) => {
-          const cliente = String(v.cliente || "Sin cliente").trim() || "Sin cliente";
-          clientesTopMap[cliente] = (clientesTopMap[cliente] || 0) + Number(v.total || 0);
-        });
-        const topClientes = Object.entries(clientesTopMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-        const gastosPorMetodo = {};
-        gastosFiltrados.forEach((g) => {
-          const metodo = metodoPagoGasto(g) || "Sin metodo";
-          gastosPorMetodo[metodo] = (gastosPorMetodo[metodo] || 0) + Number(val(g, "monto") || 0);
-        });
-
-        animateCounter(q("#dashAdminTicketPromedio"), ticketPromedio);
-        animateCounter(q("#dashAdminGastosPeriodo"), totalGastos);
-        animateCounter(q("#dashAdminVisitasPendientes"), visitasEstado.pendiente);
-        animateCounter(q("#dashAdminMercanciaPeriodo"), totalMercancia);
-        if (q("#dashAdminInstalacionesCompletadas")) q("#dashAdminInstalacionesCompletadas").textContent = fmtInt(instalacionesCompletadas);
-        const adminTopClientesBody = q("#dashAdminTopClientesBody");
-        if (adminTopClientesBody) {
-          adminTopClientesBody.innerHTML = topClientes.length
-            ? topClientes.map(([cliente, monto], idx) => `<tr><td>${idx + 1}</td><td>${cliente}</td><td>${money(monto)}</td></tr>`).join("")
-            : '<tr><td colspan="3" class="text-center text-muted">Sin datos en el periodo</td></tr>';
-        }
-
-        if (window.Chart && q("#chartAdminVisitasEstado")) {
-          charts.adminVisitasEstado = new window.Chart(q("#chartAdminVisitasEstado"), {
-            type: "doughnut",
-            data: {
-              labels: ["Pendientes", "Realizadas", "Canceladas"],
-              datasets: [{
-                data: [visitasEstado.pendiente, visitasEstado.realizado, visitasEstado.cancelado],
-                backgroundColor: ["#8d6a3f", "#58738f", "#8b5d4b"]
-              }]
-            },
-            options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.1, plugins: { legend: { position: "bottom" } } }
-          });
-        }
-        if (window.Chart && q("#chartAdminGastosMetodo")) {
-          charts.adminGastosMetodo = new window.Chart(q("#chartAdminGastosMetodo"), {
-            type: "bar",
-            data: {
-              labels: Object.keys(gastosPorMetodo),
-              datasets: [{
-                label: "Gastos",
-                data: Object.values(gastosPorMetodo),
-                backgroundColor: "#6f6079"
-              }]
-            },
-            options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.7, plugins: { legend: { display: false } } }
-          });
-        }
       }
 
       const ultimas = [...ventasAgrupadas].sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || ""))).slice(0, 10);
@@ -2889,7 +3518,11 @@ Gracias por su compromiso y profesionalismo.`;
       if (q("#ventasDiaBody")) q("#ventasDiaBody").innerHTML = rows; if (q("#tablaVentas")) q("#tablaVentas").style.display = "none"; if (q("#ventasDia")) q("#ventasDia").style.display = "";
     }
     if (vistActual.startsWith("instalacion")) {
-      const rows = st.instalacion.filter((x) => asDay(val(x, "fecha_entrega", "fechaEntrega")) === h).map((x) => `<tr><td>${val(x, "estado") || "-"}</td><td>${val(x, "instalador") || "-"}</td><td>${val(x, "cliente") || "-"}</td><td>${val(x, "telefono") || "-"}</td><td>${val(x, "producto") || "-"}</td><td>${fmtQty(val(x, "cantidad"))}</td><td>${val(x, "ubicacion") || "-"}</td><td>${val(x, "fecha_entrega", "fechaEntrega") || "-"}</td><td>${val(x, "observaciones") || "-"}</td></tr>`).join("") || '<tr><td colspan="9" class="text-center">No hay instalaciones para hoy</td></tr>';
+      const rows = st.instalacion.filter((x) => asDay(val(x, "fecha_entrega", "fechaEntrega")) === h).map((x) => {
+        const estado = val(x, "estado") || "Pendiente";
+        const tone = normalizeUiText(estado) === "completado" ? "paid" : "pending";
+        return `<tr><td>${val(x, "fecha_entrega", "fechaEntrega") || "-"}</td><td><div class="ventas-client-cell">${val(x, "cliente") || "-"}</div></td><td>${val(x, "ubicacion") || "-"}</td><td>${val(x, "instalador") || "Sin asignar"}</td><td>${statusBadge(estado, tone)}</td></tr>`;
+      }).join("") || '<tr><td colspan="5" class="text-center">No hay instalaciones para hoy</td></tr>';
       if (q("#instalacionDiaBody")) q("#instalacionDiaBody").innerHTML = rows; if (q("#tablaInstalacion")) q("#tablaInstalacion").style.display = "none"; if (q("#instalacionDia")) q("#instalacionDia").style.display = "";
     }
     if (vistActual.startsWith("gastos")) {
@@ -2898,17 +3531,16 @@ Gracias por su compromiso y profesionalismo.`;
     }
     if (vistActual.startsWith("mercancia")) {
       const mercanciaHoy = buildMercanciaVista(st.mercancia.filter((x) => asDay(val(x, "fecha_recepcion", "fechaRecepcion")) === h));
-      const rows = renderMercanciaRows(mercanciaHoy, false) || '<tr><td colspan="10" class="text-center">No hay registros para hoy</td></tr>';
+      const rows = renderMercanciaRows(mercanciaHoy, false) || '<tr><td colspan="5" class="text-center">No hay registros para hoy</td></tr>';
       if (q("#mercanciaDiaBody")) q("#mercanciaDiaBody").innerHTML = rows; if (q("#tablamercancia")) q("#tablamercancia").style.display = "none"; if (q("#mercanciaDia")) q("#mercanciaDia").style.display = "";
     }
     if (vistActual.startsWith("visitas")) {
       const rows = st.visitas.filter((x) => asDay(val(x, "fecha")) === h).map((x) => {
         const estadoRaw = String(val(x, "estado") || "pendiente").toLowerCase();
         const estado = estadoRaw === "realizada" ? "realizado" : estadoRaw;
-        const clase = estado === "realizado" ? "table-success" : (estado === "cancelado" ? "table-danger" : "");
-        const codigo = txt(val(x, "codigo_visita", "codigo")) || `VIS-${String(Number(val(x, "id")) || 0).padStart(4, "0")}`;
-        return `<tr class="${clase}"><td>${codigo}</td><td>${val(x, "fecha") || "-"}</td><td>${val(x, "cliente") || "-"}</td><td>${val(x, "telefono") || "-"}</td><td>${val(x, "direccion") || "-"}</td><td>${val(x, "tipo_trabajo", "tipoTrabajo") || "-"}</td><td>${val(x, "vendedor") || "-"}</td><td>${val(x, "observaciones") || "-"}</td><td>${estado}</td></tr>`;
-      }).join("") || '<tr><td colspan="9" class="text-center">No hay visitas para hoy</td></tr>';
+        const tone = estado === "realizado" ? "paid" : (estado === "cancelado" ? "cancelled" : "pending");
+        return `<tr><td>${val(x, "fecha") || "-"}</td><td><div class="ventas-client-cell">${val(x, "cliente") || "-"}</div></td><td>${val(x, "direccion") || "-"}</td><td>${val(x, "vendedor") || "-"}</td><td>${statusBadge(estado, tone)}</td></tr>`;
+      }).join("") || '<tr><td colspan="5" class="text-center">No hay visitas para hoy</td></tr>';
       if (q("#visitasDiaBody")) q("#visitasDiaBody").innerHTML = rows; if (q("#tablaVisitas")) q("#tablaVisitas").style.display = "none"; if (q("#visitasDia")) q("#visitasDia").style.display = "";
     }
   }
@@ -2918,30 +3550,31 @@ Gracias por su compromiso y profesionalismo.`;
     if (q("#controlGastos")) q("#controlGastos").classList.add("d-none");
   }
 
-  const logout = q("#btnCerrarSesion");
-  if (logout) logout.onclick = async () => {
+  const doLogout = async () => {
     localStorage.removeItem("usuario");
     if (sb && sb.auth) await sb.auth.signOut();
     window.location.href = "login.html";
   };
+  const logout = q("#btnCerrarSesion");
+  const logoutSidebar = q("#btnCerrarSesionSidebar");
+  if (logout) logout.onclick = doLogout;
+  if (logoutSidebar) logoutSidebar.onclick = doLogout;
 
   document.addEventListener("click", (e) => {
-    const id = e.target && e.target.id;
+    const target = e.target;
+    const element = target instanceof Element ? target : (target && target.parentElement ? target.parentElement : null);
+    const id = element ? (element.id || element.closest("[id]")?.id) : null;
     if (["btnVentasDia", "btnInstalacionDia", "btnGastosDia", "btnmercanciaDia", "btnVisitasDia"].includes(id)) showDay();
     if (["btnVentas", "btnInstalacion", "btnGastos", "btnmercancia", "btnVisitas"].includes(id)) showAll();
-    const btnNew = e.target.closest(".btn-new-record");
+    const btnNew = element ? element.closest(".btn-new-record") : null;
     if (btnNew) {
-      if (!puedeOperar()) {
-        avisarSoloConsulta();
-        return;
-      }
-      const target = btnNew.getAttribute("data-target-view");
-      if (target) change(target);
+      const viewTarget = btnNew.getAttribute("data-target-view");
+      if (viewTarget) change(viewTarget);
     }
-    const btnCancel = e.target.closest(".btn-cancel-form");
+    const btnCancel = element ? element.closest(".btn-cancel-form") : null;
     if (btnCancel) {
-      const target = btnCancel.getAttribute("data-target-view");
-      if (target) change(target);
+      const viewTarget = btnCancel.getAttribute("data-target-view");
+      if (viewTarget) change(viewTarget);
     }
   });
 
@@ -2951,25 +3584,18 @@ Gracias por su compromiso y profesionalismo.`;
   if (overlay) overlay.onclick = () => { sidebar.classList.remove("show"); overlay.classList.remove("show"); };
 
   const views = {
-    dashboard: "Centro de Operaciones - Reportes y Estadísticas",
+    dashboard: "Panel Principal - Reportes y Estadísticas",
     "ventas-historial": "Historial de Ventas",
     "ventas-form": "Registrar Venta",
     "instalacion-historial": "Programacion de Instalaciones",
     "instalacion-form": "Registrar Programacion",
     "visitas-historial": "Historial de Visitas",
     "visitas-form": "Registrar Visita",
-    "mercancia-historial": "Inventario y Mercancia",
+    "mercancia-historial": "Reporte de Mercancia",
     "mercancia-form": "Registrar Mercancia",
     "gastos-historial": "Gastos",
     "gastos-form": "Registrar Gasto",
     cartera: "Cartera de Clientes"
-  };
-  const readonlyRedirects = {
-    "ventas-form": "ventas-historial",
-    "instalacion-form": "instalacion-historial",
-    "visitas-form": "visitas-historial",
-    "mercancia-form": "mercancia-historial",
-    "gastos-form": "gastos-historial"
   };
   const links = document.querySelectorAll(".nav-link[data-view]"), title = q("#viewTitle");
   const syncSidebarGroups = (viewKey) => {
@@ -2997,12 +3623,10 @@ Gracias por su compromiso y profesionalismo.`;
     else if (v === "cartera") await modCartera();
   }
   function change(v) {
-    if (esSoloConsulta() && readonlyRedirects[v]) v = readonlyRedirects[v];
     const c = q("#viewContainer"); if (!c || !views[v]) return;
     c.innerHTML = '<div class="text-center p-5"><div class="spinner-border"></div></div>'; vistActual = v;
     fetch(`views/${v}.html`).then((r) => { if (!r.ok) throw new Error("Vista no encontrada"); return r.text(); }).then(async (html) => {
       c.innerHTML = html; if (title) title.textContent = views[v];
-      if (esSoloConsulta()) c.querySelectorAll(".btn-new-record").forEach((btn) => btn.classList.add("d-none"));
       links.forEach((l) => { l.classList.toggle("active", l.getAttribute("data-view") === v); });
       syncSidebarGroups(v);
       await init(v); if (sidebar) sidebar.classList.remove("show"); if (overlay) overlay.classList.remove("show");
@@ -3010,11 +3634,4 @@ Gracias por su compromiso y profesionalismo.`;
   }
   links.forEach((l) => l.addEventListener("click", (e) => { e.preventDefault(); change(l.getAttribute("data-view")); }));
   change("dashboard");
-  document.addEventListener("click", (e) => {
-    const btnNew = e.target.closest(".btn-new-record");
-    if (btnNew && !puedeOperar()) {
-      e.preventDefault();
-      avisarSoloConsulta();
-    }
-  }, { passive: false });
 });

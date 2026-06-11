@@ -1,85 +1,111 @@
-<div class="view-container">
-    <div class="row g-3 mb-3">
+<div class="view-container dashboard-enterprise mercancia-history-page">
+    <div class="card shadow-sm border-0 d-none"></div>
+    <div class="ventas-history-header">
+        <div>
+            <h2 class="dashboard-title mb-1">Inventario / Mercancia</h2>
+            <p class="dashboard-subtitle mb-0">Consulta y gestiona los productos recibidos</p>
+        </div>
+        <small class="text-muted">Mostrando: <span id="mercFiltroActualLabel">Todos los registros</span></small>
+    </div>
+
+    <div class="row g-3 mb-3 ventas-kpis">
         <div class="col-lg-4">
-            <div class="card bg-primary text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Productos Recibidos</h6><h3 class="mb-0" id="mercKpiRecibidos" data-counter-type="number">0</h3></div><i class="fas fa-box fs-2 opacity-50"></i></div></div>
+            <div class="card border-0 shadow-sm h-100 ventas-kpi-card">
+                <div class="card-body">
+                    <span class="ventas-kpi-icon ventas-kpi-primary"><i class="fas fa-box"></i></span>
+                    <div>
+                        <p class="mb-1 text-muted">Productos recibidos</p>
+                        <h4 class="mb-0 fw-bold" id="mercKpiRecibidos" data-counter-type="number">0</h4>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="col-lg-4">
-            <div class="card bg-success text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Valor Total Mercancia</h6><h3 class="mb-0" id="mercKpiValor" data-counter-type="money">$0</h3></div><i class="fas fa-dollar-sign fs-2 opacity-50"></i></div></div>
+            <div class="card border-0 shadow-sm h-100 ventas-kpi-card">
+                <div class="card-body">
+                    <span class="ventas-kpi-icon ventas-kpi-success"><i class="fas fa-dollar-sign"></i></span>
+                    <div>
+                        <p class="mb-1 text-muted">Valor total mercancia</p>
+                        <h4 class="mb-0 fw-bold" id="mercKpiValor" data-counter-type="money">$0</h4>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="col-lg-4">
-            <div class="card bg-warning text-white border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><h6 class="mb-1">Proveedores</h6><h3 class="mb-0" id="mercKpiProveedores" data-counter-type="number">0</h3></div><i class="fas fa-truck fs-2 opacity-50"></i></div></div>
+            <div class="card border-0 shadow-sm h-100 ventas-kpi-card">
+                <div class="card-body">
+                    <span class="ventas-kpi-icon ventas-kpi-warning"><i class="fas fa-truck"></i></span>
+                    <div>
+                        <p class="mb-1 text-muted">Proveedores</p>
+                        <h4 class="mb-0 fw-bold" id="mercKpiProveedores" data-counter-type="number">0</h4>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="card-body pt-3 pb-0 px-0">
-        <div class="d-flex justify-content-between align-items-center mb-3 toolbar-responsive gap-2 flex-wrap">
-            <button class="btn btn-primary btn-new-record" type="button" data-target-view="mercancia-form"><i class="fas fa-plus me-2"></i>Nueva mercancia</button>
-            <div class="input-group" style="max-width: 400px;">
-                <span class="input-group-text bg-white border-end-0">
-                    <i class="fas fa-search text-muted"></i>
-                </span>
-                <input type="text" id="buscadorMercancia" class="form-control border-start-0" placeholder="Buscar en mercancia..." aria-label="Buscar">
-            </div>
-            <div class="btn-group" role="group">
-                <button id="btnmercancia" class="btn btn-outline-primary active" type="button">
-                    <i class="fas fa-list me-2"></i>Toda la Mercancia
-                </button>
-                <button id="btnmercanciaDia" class="btn btn-outline-primary" type="button">
-                    <i class="fas fa-calendar-day me-2"></i>Mercancia de Hoy
-                </button>
-            </div>
+    <div class="ventas-toolbar toolbar-responsive">
+        <div class="ventas-search input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="buscadorMercancia" class="form-control" placeholder="Buscar mercancia..." aria-label="Buscar mercancia">
+        </div>
+        <select id="mercFiltroResponsable" class="form-select ventas-filter-select" aria-label="Filtro por responsable">
+            <option value="todos" selected>Todos los responsables</option>
+        </select>
+        <select id="mercFiltroEstado" class="form-select ventas-filter-select" aria-label="Filtro por estado">
+            <option value="todos" selected>Todos los estados</option>
+            <option value="activo">Activo</option>
+            <option value="pendiente">Pendiente</option>
+        </select>
+        <select id="mercFiltroPeriodo" class="form-select ventas-filter-select" aria-label="Filtro por fecha">
+            <option value="todos" selected>Todos los meses</option>
+            <option value="mes_actual">Mes actual</option>
+            <option value="mes_anterior">Mes anterior</option>
+            <option value="mes_especifico">Elegir mes</option>
+        </select>
+        <input type="month" id="mercFiltroMes" class="form-control ventas-month-range d-none" aria-label="Mes">
+        <button class="btn btn-primary btn-new-record ventas-new-btn" type="button" data-target-view="mercancia-form">
+            <i class="fas fa-plus"></i><span>Nuevo producto</span>
+        </button>
+        <div class="btn-group ventas-day-toggle" role="group">
+            <button id="btnmercancia" class="btn btn-outline-secondary active" type="button">Todas</button>
+            <button id="btnmercanciaDia" class="btn btn-outline-secondary" type="button">Hoy</button>
         </div>
     </div>
 
-    <div class="card shadow-sm mb-4 border-0">
-        <div class="card-header bg-gradient-primary text-white">
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-3">
-                    <h6 class="mb-0 fw-semibold">
-                        <i class="fas fa-table me-2"></i>Registro de Mercancia
-                    </h6>
-                    <span class="badge bg-white text-primary fs-6 px-3 py-2" id="mercancia">0</span>
-                </div>
-                <div class="text-end">
-                    <small class="text-white opacity-75">Total de pedidos</small>
-                </div>
+    <div class="card shadow-sm mb-4 border-0 ventas-table-card">
+        <div class="card-header bg-white ventas-table-header">
+            <div>
+                <h6 class="mb-0 fw-semibold">Registro de mercancia</h6>
+                <small class="text-muted">Tabla principal</small>
             </div>
+            <span class="ventas-count-badge"><span id="mercancia">0</span> registros</span>
         </div>
         <div class="card-body p-0">
             <div id="tablamercancia" class="table-responsive">
-                <table id="datatablesSimple" class="table table-hover mb-0 align-middle">
-                    <thead class="table-light">
+                <table id="datatablesSimple" class="table table-hover mb-0 align-middle ventas-modern-table">
+                    <thead>
                         <tr>
-                            <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha Recepcion</th>
-                            <th class="fw-semibold"><i class="fas fa-hashtag me-2"></i>No. Pedido</th>
-                            <th class="fw-semibold"><i class="fas fa-truck me-2"></i>Transportadora</th>
-                            <th class="fw-semibold"><i class="fas fa-user me-2"></i>Remitente</th>
-                            <th class="fw-semibold"><i class="fas fa-user-check me-2"></i>Cliente Destino</th>
-                            <th class="fw-semibold"><i class="fas fa-box me-2"></i>Producto</th>
-                            <th class="fw-semibold"><i class="fas fa-tag me-2"></i>Descripcion</th>
-                            <th class="fw-semibold"><i class="fas fa-hashtag me-2"></i>Cantidad Cajas</th>
-                            <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Total Transporte</th>
-                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Observaciones</th>
-                            <th class="fw-semibold"><i class="fas fa-tools me-2"></i>Acciones</th>
+                            <th>Producto</th>
+                            <th>Categoria</th>
+                            <th>Stock</th>
+                            <th class="text-end">Precio</th>
+                            <th>Estado</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
                 </table>
             </div>
             <div id="mercanciaDia" class="table-responsive" style="display:none;">
-                <table class="table table-hover mb-0 align-middle">
-                    <thead class="table-light">
+                <table class="table table-hover mb-0 align-middle ventas-modern-table">
+                    <thead>
                         <tr>
-                            <th class="fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Fecha Recepcion</th>
-                            <th class="fw-semibold"><i class="fas fa-hashtag me-2"></i>No. Pedido</th>
-                            <th class="fw-semibold"><i class="fas fa-truck me-2"></i>Transportadora</th>
-                            <th class="fw-semibold"><i class="fas fa-user me-2"></i>Remitente</th>
-                            <th class="fw-semibold"><i class="fas fa-user-check me-2"></i>Cliente Destino</th>
-                            <th class="fw-semibold"><i class="fas fa-box me-2"></i>Producto</th>
-                            <th class="fw-semibold"><i class="fas fa-tag me-2"></i>Descripcion</th>
-                            <th class="fw-semibold"><i class="fas fa-hashtag me-2"></i>Cantidad Cajas</th>
-                            <th class="fw-semibold"><i class="fas fa-dollar-sign me-2"></i>Total Transporte</th>
-                            <th class="fw-semibold"><i class="fas fa-sticky-note me-2"></i>Observaciones</th>
+                            <th>Producto</th>
+                            <th>Categoria</th>
+                            <th>Stock</th>
+                            <th class="text-end">Precio</th>
+                            <th>Estado</th>
                         </tr>
                     </thead>
                     <tbody id="mercanciaDiaBody"></tbody>
@@ -93,9 +119,7 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editarMercanciaLabel">
-                    <i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Mercancia
-                </h5>
+                <h5 class="modal-title" id="editarMercanciaLabel"><i class="fas fa-pen-to-square me-2 text-primary"></i>Editar Mercancia</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <form id="editMercanciaForm">
@@ -142,9 +166,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-2"></i>Guardar Cambios
-                    </button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Guardar Cambios</button>
                 </div>
             </form>
         </div>

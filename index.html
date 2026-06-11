@@ -15,12 +15,13 @@
 <body>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h6 class="sidebar-title">Menu</h6>
+            <img src="assets/img/logo.png" alt="Alfombrando" class="sidebar-logo">
             <button class="btn-close-sidebar d-md-none" id="btnCloseSidebar">
                 <i class="fas fa-times"></i>
             </button>
         </div>
         <nav class="sidebar-nav">
+            <h6 class="sidebar-title">Menu principal</h6>
             <ul class="nav-list">
                 <li>
                     <a href="#" class="nav-link" data-view="dashboard">
@@ -79,11 +80,17 @@
                 </li>
             </ul>
         </nav>
+        <div class="sidebar-footer">
+            <button class="sidebar-logout" id="btnCerrarSesionSidebar" type="button">
+                <i class="fas fa-right-from-bracket"></i>
+                <span>Cerrar Sesion</span>
+            </button>           
+        </div>
     </aside>
 
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <button class="btn-toggle-sidebar d-md-none" id="btnToggleSidebar">
+    <button class="btn-toggle-sidebar d-md-none" id="btnToggleSidebar">         
         <i class="fas fa-bars"></i>
     </button>
 
@@ -91,9 +98,7 @@
         <div class="container-fluid">
             <div class="d-flex align-items-center justify-content-between py-2">
                 <div class="d-flex align-items-center">
-                    <div class="header-brand">
-                        <img src="assets/img/logo.png" alt="Logo" class="header-logo">
-                    </div>
+                    <img src="assets/img/logo.png" alt="Logo" class="header-logo">
                 </div>
                 <button class="btn btn-outline-light btn-sm" id="btnCerrarSesion" title="Cerrar Sesion">
                     <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesion
@@ -112,8 +117,12 @@
 
     <footer class="main-footer">
         <div class="container-fluid px-4 py-3">
-            <div class="text-center text-muted small">
-                <p class="text-white mb-0">Alfombrando Reportes &copy; 2026.</p>
+            <div class="app-footer-content">
+                <p>Alfombrando Reportes &copy; 2026 Todos los derechos reservados.</p>
+                <div>
+                    <span>Version 2.5.0</span>
+                    <span class="status-online"><i></i>Sistema en linea</span>
+                </div>
             </div>
         </div>
     </footer>
