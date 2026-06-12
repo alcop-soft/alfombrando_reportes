@@ -3358,14 +3358,29 @@ Gracias por su compromiso y profesionalismo.`;
       const month = hoy.slice(0, 7);
       if (periodo === "hoy") return { from: hoy, to: hoy, label: "Hoy" };
       if (periodo === "mes") return { from: `${month}-01`, to: hoy, label: "Este mes" };
+      if (periodo === "mes_anterior") {
+        const ref = new Date(`${month}-01T00:00:00`);
+        ref.setMonth(ref.getMonth() - 1);
+        const mes = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, "0")}`;
+        const range = monthBounds(mes);
+        return { ...range, label: `Mes anterior (${formatMonthLabel(mes)})` };
+      }
+      if (periodo === "mes_especifico") {
+        const mes = String(q("#dashFiltroMes")?.value || month);
+        const range = monthBounds(mes);
+        return { ...range, label: `Mes ${formatMonthLabel(mes)}` };
+      }
       if (periodo === "anio") return { from: `${year}-01-01`, to: hoy, label: "Este año" };
       const from = q("#dashFechaDesde")?.value || "";
       const to = q("#dashFechaHasta")?.value || "";
       return { from, to, label: from && to ? `Personalizado (${from} a ${to})` : "Personalizado" };
     };
     const toggleCustomRange = () => {
-      const show = String(q("#dashFiltroPeriodo")?.value || "") === "custom";
-      document.querySelectorAll(".dash-custom-range").forEach((el) => el.classList.toggle("d-none", !show));
+      const periodo = String(q("#dashFiltroPeriodo")?.value || "");
+      const showCustom = periodo === "custom";
+      const showMonth = periodo === "mes_especifico";
+      document.querySelectorAll(".dash-custom-range").forEach((el) => el.classList.toggle("d-none", !showCustom));
+      document.querySelectorAll(".dash-month-range").forEach((el) => el.classList.toggle("d-none", !showMonth));
     };
 
     await Promise.all([load("ventas"), load("instalacion")]);
@@ -3418,19 +3433,21 @@ Gracias por su compromiso y profesionalismo.`;
         const fecha = val(i, "fecha_entrega", "fechaEntrega");
         return noCompletado && inRange(fecha, prevRange.from, prevRange.to);
       }).length;
+      const totalVentas = ventasAgrupadas.reduce((s, v) => s + Number(v.total || 0), 0);
+      const totalVentasPrev = ventasAgrupadasPrevias.reduce((s, v) => s + Number(v.total || 0), 0);
 
       if (q("#dashVentasHoy")) q("#dashVentasHoy").textContent = money(ventasHoy);
       if (q("#dashVentasMes")) q("#dashVentasMes").textContent = money(ventasMes);
       if (q("#dashCarteraPendiente")) q("#dashCarteraPendiente").textContent = money(carteraPendiente);
-      if (q("#dashPedidosInstalar")) q("#dashPedidosInstalar").textContent = fmtInt(pedidosInstalar);
+      if (q("#dashTotalVentas")) q("#dashTotalVentas").textContent = money(totalVentas);
       if (q("#dashVentasHoyCambio")) q("#dashVentasHoyCambio").dataset.suffix = " vs ayer";
       if (q("#dashVentasMesCambio")) q("#dashVentasMesCambio").dataset.suffix = " vs mes anterior";
       if (q("#dashCarteraCambio")) q("#dashCarteraCambio").dataset.suffix = " vs periodo anterior";
-      if (q("#dashPedidosCambio")) q("#dashPedidosCambio").dataset.suffix = " pendientes";
+      if (q("#dashTotalVentasCambio")) q("#dashTotalVentasCambio").dataset.suffix = " vs periodo anterior";
       setKpiChange("#dashVentasHoyCambio", pctChange(ventasHoy, ventasAyer));
       setKpiChange("#dashVentasMesCambio", pctChange(ventasMes, ventasMesAnterior));
       setKpiChange("#dashCarteraCambio", pctChange(carteraPendiente, carteraPendientePrevia));
-      setKpiChange("#dashPedidosCambio", pctChange(pedidosInstalar, pedidosInstalarPrevios));
+      setKpiChange("#dashTotalVentasCambio", pctChange(totalVentas, totalVentasPrev));
 
       const ventasUlt30 = {};
       const endDate = range.to || hoy;

@@ -5,20 +5,19 @@
             <p class="dashboard-subtitle mb-0">Reportes y estadisticas generales</p>
         </div>
         <div class="dashboard-actions">
-            <div class="dashboard-filter">
-                <i class="fas fa-calendar-day"></i>
-                <select id="dashFiltroPeriodo" class="form-select">
-                    <option value="hoy">Hoy</option>
-                    <option value="mes" selected>Este mes</option>
-                    <option value="anio">Este año</option>
-                    <option value="custom">Personalizado</option>
-                </select>
-                <i class="fas fa-chevron-down"></i>
+            <small class="text-muted me-3">Mostrando: <span id="dashFiltroActualLabel">Este mes</span></small>
+            <select id="dashFiltroPeriodo" class="form-select dashboard-filter-select">
+                <option value="hoy">Hoy</option>
+                <option value="mes" selected>Este mes</option>
+                <option value="mes_anterior">Mes anterior</option>
+                <option value="mes_especifico">Elegir mes</option>
+                <option value="anio">Este año</option>
+                <option value="custom">Rango personalizado</option>
+            </select>
+            <div class="dash-month-range d-none ms-2" style="display:inline-block;">
+                <label for="dashFiltroMes" class="visually-hidden">Mes</label>
+                <input type="month" id="dashFiltroMes" class="form-control form-control-sm" style="width:160px">
             </div>
-            <button class="dashboard-filter-btn" type="button" id="dashAplicarFiltro">
-                <i class="fas fa-filter"></i>
-                <span>Filtros</span>
-            </button>
         </div>
     </div>
 
@@ -84,13 +83,13 @@
                 <div class="card-body">
                     <div class="dashboard-kpi-menu"><i class="fas fa-ellipsis"></i></div>
                     <div class="dashboard-kpi-layout">
-                        <span class="dashboard-kpi-icon dashboard-kpi-info"><i class="fas fa-calendar-check"></i></span>
-                        <div>
-                            <p class="mb-1 text-muted">Pedidos por instalar</p>
-                            <h4 class="mb-0 fw-bold" id="dashPedidosInstalar">0</h4>
-                            <span class="dashboard-kpi-change" id="dashPedidosCambio">0% pendientes</span>
-                        </div>
-                    </div>
+                                    <span class="dashboard-kpi-icon dashboard-kpi-info"><i class="fas fa-chart-line"></i></span>
+                                    <div>
+                                        <p class="mb-1 text-muted">Total ventas (filtro)</p>
+                                        <h4 class="mb-0 fw-bold" id="dashTotalVentas">$0</h4>
+                                        <span class="dashboard-kpi-change" id="dashTotalVentasCambio">0% vs periodo anterior</span>
+                                    </div>
+                                </div>
                 </div>
             </div>
         </div>
