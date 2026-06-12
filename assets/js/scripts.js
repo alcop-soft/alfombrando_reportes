@@ -1709,7 +1709,8 @@ Gracias por su compromiso y profesionalismo.`;
     ventasVista.forEach((v) => {
       const metodo = normalizarMetodoPagoVenta(v.metodoPago);
       if (Object.prototype.hasOwnProperty.call(totalPorMetodo, metodo)) {
-        totalPorMetodo[metodo] += Number(v.total || 0);
+        // Usar el abono (lo efectivamente pagado) en lugar del total del pedido
+        totalPorMetodo[metodo] += Number(v.abono || 0);
       }
     });
     if (q("#ventas")) q("#ventas").textContent = fmtInt(ventasVista.length);
@@ -3460,7 +3461,8 @@ Gracias por su compromiso y profesionalismo.`;
       }
       ventasAgrupadas.forEach((v) => {
         const f = asDay(v.fecha);
-        if (Object.prototype.hasOwnProperty.call(ventasUlt30, f)) ventasUlt30[f] += Number(v.total || 0);
+        // Para el gráfico diario usamos lo efectivamente cobrado (`abono`) por pedido
+        if (Object.prototype.hasOwnProperty.call(ventasUlt30, f)) ventasUlt30[f] += Number(v.abono || 0);
       });
 
       const porVendedor = {};
@@ -3553,11 +3555,29 @@ Gracias por su compromiso y profesionalismo.`;
             aspectRatio: 2.2,
             plugins: { legend: { display: false } },
             scales: {
-              x: { grid: { display: false }, ticks: { color: "#64748b", maxTicksLimit: 8 } },
-              y: { beginAtZero: true, grid: { color: "rgba(148, 163, 184, 0.16)", drawBorder: false }, ticks: { color: "#64748b" } }
+              x: {
+                grid: { display: false },
+                ticks: { color: "#64748b", maxTicksLimit: 8, autoSkip: true, maxRotation: 0, minRotation: 0 }
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: "rgba(148, 163, 184, 0.16)", drawBorder: false },
+                ticks: {
+                  color: "#64748b",
+                  callback: (value) => money(value)
+                }
+              }
             }
           }
         });
+        // Mejorar tooltip para mostrar valores formateados
+        if (charts.ventas30Dias && charts.ventas30Dias.config && charts.ventas30Dias.config.options) {
+          charts.ventas30Dias.config.options.plugins = charts.ventas30Dias.config.options.plugins || {};
+          charts.ventas30Dias.config.options.plugins.tooltip = charts.ventas30Dias.config.options.plugins.tooltip || {};
+          charts.ventas30Dias.config.options.plugins.tooltip.callbacks = charts.ventas30Dias.config.options.plugins.tooltip.callbacks || {};
+          charts.ventas30Dias.config.options.plugins.tooltip.callbacks.label = (ctx) => `${ctx.dataset.label || 'Ventas'}: ${money(ctx.raw || 0)}`;
+          charts.ventas30Dias.update();
+        }
       }
       if (window.Chart && q("#chartVentasVendedor")) {
         charts.ventasVendedor = new window.Chart(q("#chartVentasVendedor"), {
